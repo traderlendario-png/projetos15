@@ -1,0 +1,3543 @@
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/accept-invite/AcceptInviteClient.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/accept-invite/AcceptInviteClient.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/accept-invite/AcceptInviteClient.tsx	2026-09-10 01:22:29.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/accept-invite/AcceptInviteClient.tsx	2026-09-10 04:36:11.063921288 +0000
+@@ -1,8 +1,10 @@
+ 'use client';
+ 
+ import { useState } from 'react';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ export function AcceptInviteClient({ token }: { token: string }) {
++  const { t } = useI18n();
+   const [state, setState] = useState<'idle' | 'working' | 'error'>('idle');
+   const [message, setMessage] = useState('');
+ 
+@@ -16,27 +18,25 @@
+         body: JSON.stringify({ token }),
+       });
+       const payload = await response.json();
+-      if (!response.ok) throw new Error(payload?.message ?? 'Não foi possível aceitar o convite.');
++      if (!response.ok) throw new Error(payload?.message ?? t('invite.failed'));
+       const switched = await fetch('/api/auth/switch-organization', {
+         method: 'POST',
+         headers: { 'content-type': 'application/json' },
+         body: JSON.stringify({ organizationId: payload.organizationId }),
+       });
+-      if (!switched.ok) throw new Error('Convite aceito, mas não foi possível selecionar a organização.');
++      if (!switched.ok) throw new Error(t('invite.acceptedSwitchFailed'));
+       window.location.assign('/');
+     } catch (error) {
+       setState('error');
+-      setMessage(error instanceof Error ? error.message : 'Erro inesperado.');
++      setMessage(error instanceof Error ? error.message : t('invite.unexpected'));
+     }
+   }
+ 
+   return (
+     <div className="border border-os-border bg-os-panel p-8">
+-      <div className="text-xs font-semibold uppercase tracking-[0.24em] text-os-muted">FounderOS</div>
+-      <h1 className="mt-3 text-2xl font-semibold text-os-text">Convite para organização</h1>
+-      <p className="mt-3 text-sm leading-6 text-os-muted">
+-        Confirme para adicionar sua conta à organização com a função definida pelo administrador.
+-      </p>
++      <div className="text-xs font-semibold uppercase tracking-[0.24em] text-os-muted">{t('auth.brand')}</div>
++      <h1 className="mt-3 text-2xl font-semibold text-os-text">{t('invite.title')}</h1>
++      <p className="mt-3 text-sm leading-6 text-os-muted">{t('invite.description')}</p>
+       {state === 'error' ? <p className="mt-4 text-sm text-os-red">{message}</p> : null}
+       <button
+         type="button"
+@@ -44,7 +44,7 @@
+         disabled={state === 'working'}
+         className="mt-6 w-full bg-os-red px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+       >
+-        {state === 'working' ? 'Aceitando…' : 'Aceitar convite'}
++        {state === 'working' ? t('invite.accepting') : t('invite.accept')}
+       </button>
+     </div>
+   );
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/accept-invite/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/accept-invite/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/accept-invite/page.tsx	2026-09-10 01:22:29.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/accept-invite/page.tsx	2026-09-10 04:36:11.063066994 +0000
+@@ -1,4 +1,6 @@
+ import { AcceptInviteClient } from './AcceptInviteClient';
++import { translate } from '@/lib/i18n/catalog';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
+ 
+ export const metadata = { robots: { index: false, follow: false } };
+ 
+@@ -8,14 +10,14 @@
+   searchParams: Promise<{ token?: string }>;
+ }) {
+   const { token } = await searchParams;
++  const regional = await getRequestRegionalSettings();
++  const t = (key: Parameters<typeof translate>[1]) => translate(regional.locale, key);
+   return (
+     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6">
+       {token ? (
+         <AcceptInviteClient token={token} />
+       ) : (
+-        <div className="border border-os-border bg-os-panel p-8 text-sm text-os-muted">
+-          Convite ausente ou inválido.
+-        </div>
++        <div className="border border-os-border bg-os-panel p-8 text-sm text-os-muted">{t('auth.inviteMissing')}</div>
+       )}
+     </main>
+   );
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/access-pending/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/access-pending/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/access-pending/page.tsx	2026-09-10 01:22:07.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/access-pending/page.tsx	2026-09-10 04:36:11.062202440 +0000
+@@ -1,13 +1,19 @@
+-export default function AccessPendingPage() {
++import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher';
++import { translate } from '@/lib/i18n/catalog';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
++
++export default async function AccessPendingPage() {
++  const regional = await getRequestRegionalSettings();
++  const t = (key: Parameters<typeof translate>[1]) => translate(regional.locale, key);
+   return (
+     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6">
+       <div className="border border-os-border bg-os-panel p-8">
+-        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-os-muted">FounderOS</div>
+-        <h1 className="mt-3 text-2xl font-semibold text-os-text">Acesso pendente</h1>
+-        <p className="mt-3 text-sm leading-6 text-os-muted">
+-          Sua identidade foi autenticada, mas ainda não há uma organização ativa com acesso ao produto.
+-          Aceite um convite da sua empresa ou peça acesso a um administrador.
+-        </p>
++        <div className="flex items-center justify-between gap-4">
++          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-os-muted">{t('auth.brand')}</div>
++          <LocaleSwitcher compact={false} />
++        </div>
++        <h1 className="mt-3 text-2xl font-semibold text-os-text">{t('auth.accessPendingTitle')}</h1>
++        <p className="mt-3 text-sm leading-6 text-os-muted">{t('auth.accessPendingDescription')}</p>
+       </div>
+     </main>
+   );
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/analytics/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/analytics/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/analytics/page.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/analytics/page.tsx	2026-09-10 04:43:58.623134261 +0000
+@@ -16,6 +16,9 @@
+ import { Badge, Label, SectionHead, Spark } from '@/components/terminal';
+ import { SharePie } from '@/components/SharePie';
+ import { formatFollowers, GrowthBadge, MiniBars } from '@/components/SocialStats';
++import { formatCurrencyCode, formatDateUtc, formatNumber } from '@/lib/i18n/format';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
++import type { SupportedLocale } from '@/lib/i18n/locales';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+@@ -28,10 +31,10 @@
+ };
+ 
+ // Value + small-unit split per tile (compact for audience, $ for money).
+-function tileValue(value: number, unit: string): { main: string; small: string } {
+-  if (unit === 'usd') return { main: `$${value.toLocaleString('en-US')}`, small: '' };
+-  if (unit === 'followers') return { main: formatFollowers(value), small: '' };
+-  return { main: value.toLocaleString('en-US'), small: unit };
++function tileValue(value: number, unit: string, locale: SupportedLocale): { main: string; small: string } {
++  if (unit === 'usd') return { main: formatCurrencyCode(value, locale, 'USD', { maximumFractionDigits: 0 }), small: '' };
++  if (unit === 'followers') return { main: formatFollowers(value, locale), small: '' };
++  return { main: formatNumber(value, locale), small: unit };
+ }
+ 
+ // Deterministic spark shape per metric id until per-metric history lands.
+@@ -49,14 +52,10 @@
+   return Array.from({ length: 12 }, (_, i) => 4 + i * 1.3 + ((base + i * 7) % 5));
+ }
+ 
+-function fmtShort(iso: string): string {
+-  return new Date(`${iso}T00:00:00Z`)
+-    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+-    .toLowerCase();
++function fmtShort(iso: string, locale: SupportedLocale): string {
++  return formatDateUtc(`${iso}T00:00:00Z`, locale, { month: 'short', day: 'numeric' }).toLowerCase();
+ }
+ 
+-const fmtCount = (n: number) => n.toLocaleString('en-US');
+-
+ /** Responsive area chart for daily agent-run counts (real log, honest zeros). */
+ function RunVolumeChart({ data }: { data: { date: string; count: number }[] }) {
+   const W = 640;
+@@ -91,10 +90,10 @@
+   );
+ }
+ 
+-function MetricCard({ tile }: { tile: MetricTile }) {
++function MetricCard({ tile, locale }: { tile: MetricTile; locale: SupportedLocale }) {
+   const up = tile.delta > 0;
+   const flat = tile.delta === 0;
+-  const { main, small } = tileValue(tile.value, tile.unit);
++  const { main, small } = tileValue(tile.value, tile.unit, locale);
+   return (
+     <div className="hoverable flex flex-col gap-2.5 rounded-lg-t border border-os-border bg-os-surface px-[18px] py-4">
+       <div className="flex items-center justify-between gap-2">
+@@ -150,6 +149,8 @@
+ }
+ 
+ export default async function AnalyticsPage() {
++  const regional = await getRequestRegionalSettings();
++  const fmtCount = (n: number) => formatNumber(n, regional.locale);
+   const db = getDb();
+   syncFromZernioConfig(db);
+   const today = new Date().toISOString().slice(0, 10);
+@@ -248,7 +249,7 @@
+       {live.length > 0 && (
+         <section className="mb-6 grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4 ultra:grid-cols-6">
+           {live.map((tile) => (
+-            <MetricCard key={tile.id} tile={tile} />
++            <MetricCard key={tile.id} tile={tile} locale={regional.locale} />
+           ))}
+         </section>
+       )}
+@@ -260,11 +261,11 @@
+           {audienceReach > 0 && (
+             <PieCard
+               title="Audience share"
+-              sub={`${formatFollowers(audienceReach)} reach`}
++              sub={`${formatFollowers(audienceReach, regional.locale)} reach`}
+               items={audienceItems}
+               total={audienceReach}
+               centerLabel="total reach"
+-              format={formatFollowers}
++              format={(value) => formatFollowers(value, regional.locale)}
+               ariaLabel="Audience share by channel"
+             />
+           )}
+@@ -304,9 +305,9 @@
+             <RunVolumeChart data={runVolume} />
+           </div>
+           <div className="mt-2 flex justify-between font-mono text-[9.5px] uppercase tracking-[0.12em] text-os-dim">
+-            <span>{fmtShort(runVolume[0].date)}</span>
+-            <span>{fmtShort(runVolume[Math.floor(runVolume.length / 2)].date)}</span>
+-            <span>{fmtShort(runVolume[runVolume.length - 1].date)}</span>
++            <span>{fmtShort(runVolume[0].date, regional.locale)}</span>
++            <span>{fmtShort(runVolume[Math.floor(runVolume.length / 2)].date, regional.locale)}</span>
++            <span>{fmtShort(runVolume[runVolume.length - 1].date, regional.locale)}</span>
+           </div>
+         </div>
+ 
+@@ -344,7 +345,7 @@
+ 
+       {/* Audience by platform — real Zernio snapshot data */}
+       <section>
+-        <SectionHead label="Audience · by platform" count={`${formatFollowers(totalFollowers)} total`} link="Open Social" href="/social" />
++        <SectionHead label="Audience · by platform" count={`${formatFollowers(totalFollowers, regional.locale)} total`} link="Open Social" href="/social" />
+         <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3 ultra:grid-cols-4">
+           {dash.platforms.map((p) => {
+             const Icon = PLATFORM_ICONS[p.platform];
+@@ -369,7 +370,7 @@
+                 </div>
+                 <div className="mt-4 flex items-end justify-between gap-3">
+                   <div className="font-mono text-[24px] font-semibold tracking-[-0.02em]">
+-                    {formatFollowers(p.followers)}
++                    {formatFollowers(p.followers, regional.locale)}
+                   </div>
+                   <MiniBars bars={barsFor(p.platform)} />
+                 </div>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/api/conductor/context/route.ts /mnt/data/_phase7/FounderOS-DEMO-main/app/api/conductor/context/route.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/api/conductor/context/route.ts	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/api/conductor/context/route.ts	2026-09-10 04:36:23.335271069 +0000
+@@ -1,5 +1,6 @@
+ import { NextResponse } from 'next/server';
+ import { screenContextFor, screenTitleFor } from '@/lib/screen-context';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
+ 
+ export const dynamic = 'force-dynamic';
+ export const runtime = 'nodejs'; // better-sqlite3 is native — keep off the edge runtime
+@@ -12,9 +13,10 @@
+ /** What the Conductor panel tells the agent about the screen it's docked on. */
+ export async function GET(req: Request) {
+   const path = new URL(req.url).searchParams.get('path') ?? '/';
++  const { locale } = await getRequestRegionalSettings();
+   const fallback = new Promise<{ title: string; context: string }>((resolve) =>
+-    setTimeout(() => resolve({ title: screenTitleFor(path), context: `${screenTitleFor(path)} view of Founder OS.` }), CONTEXT_BUDGET_MS),
++    setTimeout(() => resolve({ title: screenTitleFor(path, locale), context: `${screenTitleFor(path, locale)} view of Founder OS.` }), CONTEXT_BUDGET_MS),
+   );
+-  const resolved = await Promise.race([screenContextFor(path), fallback]);
++  const resolved = await Promise.race([screenContextFor(path, locale), fallback]);
+   return NextResponse.json(resolved);
+ }
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/api/control-plane/me/preferences/route.ts /mnt/data/_phase7/FounderOS-DEMO-main/app/api/control-plane/me/preferences/route.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/api/control-plane/me/preferences/route.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/api/control-plane/me/preferences/route.ts	2026-09-10 04:33:46.999936593 +0000
+@@ -0,0 +1,34 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { authorizationErrorResponse, requireRequestSession } from '@/lib/control-plane/request-auth';
++import { loadEffectiveRegionalSettings, updateUserPreferences, UserPreferencesPatchSchema } from '@/lib/control-plane/preferences';
++import { getControlPlaneConnection } from '@/lib/control-plane/client';
++
++export async function GET() {
++  try {
++    const session = await requireRequestSession();
++    const { sql } = getControlPlaneConnection();
++    const regional = await sql.begin(async (tx) => {
++      await tx`select set_config('founder_os.actor_id', ${session.user.id}, true)`;
++      if (session.organization) await tx`select set_config('founder_os.organization_id', ${session.organization.id}, true)`;
++      return loadEffectiveRegionalSettings(tx, session.user.id, session.organization?.id ?? null);
++    });
++    return NextResponse.json({ regional });
++  } catch (error) {
++    return authorizationErrorResponse(error) ?? NextResponse.json({ error: 'internal_error' }, { status: 500 });
++  }
++}
++
++export async function PATCH(req: NextRequest) {
++  try {
++    const session = await requireRequestSession();
++    const patch = UserPreferencesPatchSchema.parse(await req.json());
++    const regional = await updateUserPreferences({
++      session,
++      patch,
++      requestId: req.headers.get('x-request-id') ?? undefined,
++    });
++    return NextResponse.json({ ok: true, regional });
++  } catch (error) {
++    return authorizationErrorResponse(error) ?? NextResponse.json({ error: 'invalid_request' }, { status: 400 });
++  }
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/api/i18n/locale/route.ts /mnt/data/_phase7/FounderOS-DEMO-main/app/api/i18n/locale/route.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/api/i18n/locale/route.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/api/i18n/locale/route.ts	2026-09-10 04:33:47.000694620 +0000
+@@ -0,0 +1,22 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { z } from 'zod';
++import { LOCALE_COOKIE, SUPPORTED_LOCALES } from '@/lib/i18n/locales';
++
++const Body = z.object({ locale: z.enum(SUPPORTED_LOCALES) }).strict();
++
++export async function POST(req: NextRequest) {
++  try {
++    const { locale } = Body.parse(await req.json());
++    const response = NextResponse.json({ ok: true, locale });
++    response.cookies.set(LOCALE_COOKIE, locale, {
++      httpOnly: false,
++      sameSite: 'lax',
++      secure: req.nextUrl.protocol === 'https:',
++      path: '/',
++      maxAge: 60 * 60 * 24 * 365,
++    });
++    return response;
++  } catch {
++    return NextResponse.json({ error: 'invalid_locale' }, { status: 400 });
++  }
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/finances/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/finances/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/finances/page.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/finances/page.tsx	2026-09-10 04:42:33.019176591 +0000
+@@ -16,11 +16,11 @@
+ import { StatementUploader } from '@/components/StatementUploader';
+ import { BusinessIncomeChart } from '@/components/BusinessIncomeChart';
+ import { Badge, Label, SectionHead } from '@/components/terminal';
++import { formatCurrencyCode, formatDateUtc } from '@/lib/i18n/format';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+-const usd = (n: number, cents = false) =>
+-  n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: cents ? 2 : 0 });
+ 
+ function ago(unix: number): string {
+   const mins = Math.round((Date.now() - unix * 1000) / 60_000);
+@@ -31,6 +31,9 @@
+ }
+ 
+ export default async function FinancesPage() {
++  const regional = await getRequestRegionalSettings();
++  const usd = (n: number, cents = false) =>
++    formatCurrencyCode(n, regional.locale, 'USD', { maximumFractionDigits: cents ? 2 : 0 });
+   const stripeKeyed = configuredProcessors(process.env).some((p) => p.id === 'stripe' && p.configured);
+ 
+   // Stripe is only "live" when the API actually answers — a present-but-invalid
+@@ -93,7 +96,7 @@
+   }
+   // "2026-06" → "Jun 2026" for an honest period label on the uploaded figures.
+   const monthLabel = ledgerMonth
+-    ? new Date(`${ledgerMonth}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
++    ? formatDateUtc(`${ledgerMonth}-01T00:00:00Z`, regional.locale, { month: 'short', year: 'numeric' })
+     : null;
+   const byCategory = expensesLive ? ledgerSpend : expensesByCategory(SAMPLE_EXPENSES);
+   const expenses = expensesLive ? ledgerSpend.reduce((s, c) => s + c.total, 0) : totalExpenses(SAMPLE_EXPENSES);
+@@ -286,7 +289,7 @@
+                 >
+                   <Send className="h-[15px] w-[15px] shrink-0 text-os-err" strokeWidth={1.8} />
+                   <span className="font-mono text-[15px] font-semibold text-os-err">
+-                    −{(t.amountCents / 100).toLocaleString('en-US', { style: 'currency', currency: t.currency })}
++                    −{formatCurrencyCode(t.amountCents / 100, regional.locale, t.currency)}
+                   </span>
+                   <span className="min-w-0 flex-1 truncate text-[12.5px] text-os-muted">{t.reference ?? t.status}</span>
+                   <span className="shrink-0 font-mono text-[11px] text-os-dim">{t.status}</span>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/funnel/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/funnel/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/funnel/page.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/funnel/page.tsx	2026-09-10 04:42:33.020073664 +0000
+@@ -34,6 +34,9 @@
+   type FunnelVenture,
+ } from '@/lib/schemas';
+ import type { ConnectorStatus } from '@/lib/connectors/types';
++import { formatCurrencyCode } from '@/lib/i18n/format';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
++import type { SupportedLocale } from '@/lib/i18n/locales';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+@@ -43,8 +46,8 @@
+   { id: 'launchpad-cohort', label: 'Launchpad Cohort' },
+ ];
+ 
+-function usd(amount: number): string {
+-  return `$${Math.round(amount).toLocaleString('en-US')}`;
++function usd(amount: number, locale: SupportedLocale): string {
++  return formatCurrencyCode(Math.round(amount), locale, 'USD', { maximumFractionDigits: 0 });
+ }
+ 
+ function ventureColor(id: FunnelVenture): string {
+@@ -133,10 +136,12 @@
+   journey,
+   now,
+   href,
++  locale,
+ }: {
+   journey: FunnelJourney;
+   now: Date;
+   href: string;
++  locale: SupportedLocale;
+ }) {
+   const meta = journeyMeta(journey, now);
+   const decay = decayFactor(meta.daysSinceLastTouch, journey.status);
+@@ -165,7 +170,7 @@
+       </span>
+       <span className="shrink-0 font-mono text-[10px] text-os-muted">{journey.likelihood}%</span>
+       {(journey.amountUsd ?? 0) > 0 && (
+-        <span className="shrink-0 font-mono text-[10px] text-os-muted">{usd(journey.amountUsd ?? 0)}</span>
++        <span className="shrink-0 font-mono text-[10px] text-os-muted">{usd(journey.amountUsd ?? 0, locale)}</span>
+       )}
+     </Link>
+   );
+@@ -181,9 +186,11 @@
+   journey,
+   now,
+   lastMsg,
++  locale,
+ }: {
+   journey: FunnelJourney;
+   now: Date;
++  locale: SupportedLocale;
+   /** undefined = lookup not run (no segment selected) · null = no thread found */
+   lastMsg?: CommsItem | null;
+ }) {
+@@ -241,7 +248,7 @@
+         <td className="max-w-[220px] px-3 py-2.5">
+           {converted ? (
+             <span className="block truncate font-mono text-[10.5px] text-os-ok" title={journey.product ?? undefined}>
+-              {usd(journey.amountUsd ?? 0)}
++              {usd(journey.amountUsd ?? 0, locale)}
+               {journey.product ? ` · ${journey.product}` : ''}
+             </span>
+           ) : (
+@@ -286,6 +293,7 @@
+ }: {
+   searchParams?: Promise<{ venture?: string; view?: string; stage?: string; layout?: string; lead?: string }>;
+ }) {
++  const regional = await getRequestRegionalSettings();
+   const resolvedSearchParams = searchParams ? await searchParams : undefined;
+   const parsed = FunnelVentureSchema.safeParse(resolvedSearchParams?.venture);
+   const venture = parsed.success ? parsed.data : undefined;
+@@ -367,7 +375,7 @@
+             </Badge>
+           )}
+           <Badge tone="accent">
+-            {summary.converted}/{summary.clients} converted · {usd(summary.revenueUsd)}
++            {summary.converted}/{summary.clients} converted · {usd(summary.revenueUsd, regional.locale)}
+           </Badge>
+         </div>
+       </header>
+@@ -528,7 +536,7 @@
+               </p>
+             ) : (
+               attention.pushNow.map((j) => (
+-                <AttentionRow key={j.id} journey={j} now={now} href={href(venture, view, stage, layout, j.id)} />
++                <AttentionRow key={j.id} journey={j} now={now} href={href(venture, view, stage, layout, j.id)} locale={regional.locale} />
+               ))
+             )}
+           </div>
+@@ -547,7 +555,7 @@
+               </p>
+             ) : (
+               attention.saveNow.map((j) => (
+-                <AttentionRow key={j.id} journey={j} now={now} href={href(venture, view, stage, layout, j.id)} />
++                <AttentionRow key={j.id} journey={j} now={now} href={href(venture, view, stage, layout, j.id)} locale={regional.locale} />
+               ))
+             )}
+           </div>
+@@ -618,6 +626,7 @@
+                     journey={j}
+                     now={now}
+                     lastMsg={commsFeed ? lastMessageFor(j, commsFeed) : undefined}
++                  locale={regional.locale}
+                   />
+                 ))}
+               </tbody>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/layout.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/layout.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/layout.tsx	2026-09-10 01:22:07.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/layout.tsx	2026-09-10 04:35:55.208465150 +0000
+@@ -12,6 +12,10 @@
+ import { THEME_INIT_SCRIPT } from '@/lib/theme';
+ import { getControlPlaneAuthMode } from '@/lib/control-plane/auth-config';
+ import { getRequestSession } from '@/lib/control-plane/request-auth';
++import { I18nProvider } from '@/components/i18n/I18nProvider';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
++import { translate, type MessageKey } from '@/lib/i18n/catalog';
++import type { SupportedLocale } from '@/lib/i18n/locales';
+ 
+ const fontMono = JetBrains_Mono({
+   subsets: ['latin'],
+@@ -24,18 +28,19 @@
+   description: 'Personal operating system and AI agent command center',
+ };
+ 
+-const NAV_COMMANDS: Command[] = [
+-  { id: 'nav-home', label: 'Home', keywords: 'dashboard today overview start', href: '/', hint: 'view' },
+-  { id: 'nav-social', label: 'Social', keywords: 'instagram tiktok twitter x youtube linkedin followers growth zernio founderos', href: '/social', hint: 'view' },
+-  { id: 'nav-comms', label: 'Comms', keywords: 'messages email whatsapp slack inbox unified feed', href: '/comms', hint: 'view' },
+-  { id: 'nav-agents', label: 'Agents', keywords: 'runtime run real roster', href: '/agents', hint: 'view' },
+-  { id: 'nav-connections', label: 'Connections', keywords: 'integrations tools status creds', href: '/integrations', hint: 'view' },
+-  { id: 'nav-roadmap', label: 'Roadmap', keywords: 'plan phases quarters', href: '/roadmap', hint: 'view' },
+-  { id: 'nav-analytics', label: 'Analytics', keywords: 'metrics numbers', href: '/analytics', hint: 'view' },
+-  { id: 'nav-reference', label: 'Reference Model', keywords: 'domains business brm', href: '/reference', hint: 'view' },
+-  { id: 'nav-org', label: 'Org Chart', keywords: 'org chart hierarchy departments tree structure leads specialists', href: '/org', hint: 'view' },
+-  { id: 'nav-brain', label: 'G-Brain', keywords: 'brain knowledge core markdown vector pgvector supabase embeddings zeroentropy graph doctor', href: '/brain', hint: 'view' },
+-  // Local apps discovered on this machine — open in a new tab
++type LocalizedCommandSeed = Omit<Command, 'label'> & { labelKey?: MessageKey; label?: string };
++
++const NAV_COMMANDS: LocalizedCommandSeed[] = [
++  { id: 'nav-home', labelKey: 'nav.home', keywords: 'dashboard today overview start', href: '/', hint: 'view' },
++  { id: 'nav-social', labelKey: 'nav.social', keywords: 'instagram tiktok twitter x youtube linkedin followers growth zernio founderos', href: '/social', hint: 'view' },
++  { id: 'nav-comms', labelKey: 'nav.comms', keywords: 'messages email whatsapp slack inbox unified feed', href: '/comms', hint: 'view' },
++  { id: 'nav-agents', labelKey: 'nav.agents', keywords: 'runtime run real roster', href: '/agents', hint: 'view' },
++  { id: 'nav-connections', labelKey: 'nav.integrations', keywords: 'integrations tools status creds', href: '/integrations', hint: 'view' },
++  { id: 'nav-roadmap', labelKey: 'nav.roadmap', keywords: 'plan phases quarters', href: '/roadmap', hint: 'view' },
++  { id: 'nav-analytics', labelKey: 'nav.analytics', keywords: 'metrics numbers', href: '/analytics', hint: 'view' },
++  { id: 'nav-reference', labelKey: 'nav.referenceModel', keywords: 'domains business brm', href: '/reference', hint: 'view' },
++  { id: 'nav-org', labelKey: 'nav.orgChart', keywords: 'org chart hierarchy departments tree structure leads specialists', href: '/org', hint: 'view' },
++  { id: 'nav-brain', labelKey: 'nav.knowledge', keywords: 'brain knowledge core markdown vector pgvector supabase embeddings zeroentropy graph doctor', href: '/brain', hint: 'view' },
+   { id: 'ext-command-center', label: 'Command Center', keywords: 'command-center kanban missions port 4000', href: 'http://localhost:4000', hint: 'localhost' },
+   { id: 'ext-remotion', label: 'Remotion Studio', keywords: 'video render pipeline port 3789', href: 'http://localhost:3789', hint: 'localhost' },
+   { id: 'ext-skool', label: 'Skool Community', keywords: 'launchpad cohort community posts', href: 'https://www.skool.com/launchpad-cohort', hint: 'web' },
+@@ -43,36 +48,44 @@
+   { id: 'ext-fathom', label: 'Fathom Calls', keywords: 'meetings recordings notes', href: 'https://fathom.video', hint: 'web' },
+ ];
+ 
+-function buildCommands(): Command[] {
++function buildCommands(locale: SupportedLocale): Command[] {
+   const db = getDb();
+-  const tools: Command[] = db.tools.all().map((t) => ({
+-    id: `tool-${t.id}`,
+-    label: t.name,
+-    keywords: `${t.category} ${t.description}`,
++  const nav: Command[] = NAV_COMMANDS.map((command) => ({
++    id: command.id,
++    label: command.labelKey ? translate(locale, command.labelKey) : command.label ?? command.id,
++    keywords: command.keywords,
++    href: command.href,
++    hint: command.hint,
++  }));
++  const tools: Command[] = db.tools.all().map((tool) => ({
++    id: `tool-${tool.id}`,
++    label: tool.name,
++    keywords: `${tool.category} ${tool.description}`,
+     href: '/integrations',
+-    hint: 'tool',
++    hint: translate(locale, 'common.tool').toLowerCase(),
+   }));
+-  const agents: Command[] = db.agents.all().map((a) => ({
+-    id: `agent-${a.id}`,
+-    label: a.name,
+-    keywords: `${a.role} ${a.description}`,
++  const agents: Command[] = db.agents.all().map((agent) => ({
++    id: `agent-${agent.id}`,
++    label: agent.name,
++    keywords: `${agent.role} ${agent.description}`,
+     href: '/agents',
+-    hint: 'agent',
++    hint: translate(locale, 'common.agent').toLowerCase(),
+   }));
+-  return [...NAV_COMMANDS, ...agents, ...tools];
++  return [...nav, ...agents, ...tools];
+ }
+ 
+ export default async function RootLayout({ children }: { children: React.ReactNode }) {
+   const requestHeaders = await headers();
++  const regional = await getRequestRegionalSettings();
+   const pathname = requestHeaders.get('x-founder-pathname') ?? '/';
+   const authMode = getControlPlaneAuthMode();
+ 
+   // /login is deliberately outside the authenticated product chrome.
+   if (pathname === '/login' || pathname === '/access-pending' || pathname === '/accept-invite') {
+     return (
+-      <html lang="pt-BR" className={fontMono.variable} suppressHydrationWarning>
++      <html lang={regional.locale} className={fontMono.variable} suppressHydrationWarning>
+         <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
+-        <body>{children}</body>
++        <body><I18nProvider regional={regional}>{children}</I18nProvider></body>
+       </html>
+     );
+   }
+@@ -85,12 +98,13 @@
+   }
+ 
+   return (
+-    <html lang="en" className={fontMono.variable} suppressHydrationWarning>
++    <html lang={regional.locale} className={fontMono.variable} suppressHydrationWarning>
+       <head>
+         {/* Apply the persisted theme before first paint — no dark↔light flash. */}
+         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+       </head>
+       <body>
++        <I18nProvider regional={regional}>
+         <Sidebar />
+         {/* os-shell yields to the Conductor dock: the panel sets --conductor-w
+             and the whole content column glides left instead of being covered */}
+@@ -104,9 +118,10 @@
+             </div>
+           </main>
+         </div>
+-        <CommandPalette commands={buildCommands()} />
++        <CommandPalette commands={buildCommands(regional.locale)} />
+         {/* Notion-style agent dock — the Conductor, aware of the current screen */}
+         <ConductorPanel />
++        </I18nProvider>
+       </body>
+     </html>
+   );
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/login/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/login/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/login/page.tsx	2026-09-10 01:11:44.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/login/page.tsx	2026-09-10 04:36:11.061388032 +0000
+@@ -1,4 +1,7 @@
+ import { isDevAuthEnabled } from '@/lib/control-plane/auth-config';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
++import { translate } from '@/lib/i18n/catalog';
++import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher';
+ 
+ export default async function LoginPage({
+   searchParams,
+@@ -9,32 +12,34 @@
+   const returnTo = params.returnTo?.startsWith('/') ? params.returnTo : '/';
+   const loginUrl = process.env.CONTROL_PLANE_LOGIN_URL?.trim();
+   const dev = isDevAuthEnabled();
++  const regional = await getRequestRegionalSettings();
++  const t = (key: Parameters<typeof translate>[1]) => translate(regional.locale, key);
++
+   return (
+     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
+       <div className="border border-os-border bg-os-panel p-8">
+-        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-os-muted">FounderOS</div>
+-        <h1 className="mt-3 text-2xl font-semibold text-os-text">Entrar</h1>
+-        <p className="mt-2 text-sm leading-6 text-os-muted">
+-          Autentique-se com o provedor de identidade da sua organização.
+-        </p>
++        <div className="flex items-center justify-between gap-4">
++          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-os-muted">{t('auth.brand')}</div>
++          <LocaleSwitcher compact={false} />
++        </div>
++        <h1 className="mt-3 text-2xl font-semibold text-os-text">{t('auth.title')}</h1>
++        <p className="mt-2 text-sm leading-6 text-os-muted">{t('auth.description')}</p>
+         {loginUrl ? (
+           <a className="mt-6 block bg-os-red px-4 py-3 text-center text-sm font-semibold text-white" href={loginUrl}>
+-            Continuar
++            {t('auth.continue')}
+           </a>
+         ) : null}
+         {dev ? (
+           <form className="mt-6 space-y-3 border-t border-os-border pt-6" method="post" action="/api/auth/dev-login">
+             <input type="hidden" name="returnTo" value={returnTo} />
+-            <input className="w-full border border-os-border bg-os-bg px-3 py-2 text-sm" name="displayName" placeholder="Nome" />
+-            <input className="w-full border border-os-border bg-os-bg px-3 py-2 text-sm" name="email" type="email" placeholder="voce@empresa.com" required />
++            <input className="w-full border border-os-border bg-os-bg px-3 py-2 text-sm" name="displayName" placeholder={t('auth.devName')} />
++            <input className="w-full border border-os-border bg-os-bg px-3 py-2 text-sm" name="email" type="email" placeholder={t('auth.devEmail')} required />
+             <button className="w-full border border-os-border px-4 py-2 text-sm font-semibold" type="submit">
+-              Login de desenvolvimento
++              {t('auth.devLogin')}
+             </button>
+           </form>
+         ) : null}
+-        {!loginUrl && !dev ? (
+-          <p className="mt-6 text-xs text-os-dim">Provedor de identidade ainda não configurado.</p>
+-        ) : null}
++        {!loginUrl && !dev ? <p className="mt-6 text-xs text-os-dim">{t('auth.providerMissing')}</p> : null}
+       </div>
+     </main>
+   );
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/social/[platform]/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/social/[platform]/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/social/[platform]/page.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/social/[platform]/page.tsx	2026-09-10 04:43:58.623215964 +0000
+@@ -6,10 +6,12 @@
+ import type { SocialPlatform } from '@/lib/schemas';
+ import { formatFollowers, formatPct, GrowthBadge } from '@/components/SocialStats';
+ import { FollowerBarChart } from '@/components/FollowerBarChart';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+ export default async function SocialPlatformPage({ params }: { params: Promise<{ platform: string }> }) {
++  const regional = await getRequestRegionalSettings();
+   const { platform } = await params;
+   const db = getDb();
+   syncFromZernioConfig(db);
+@@ -50,7 +52,7 @@
+       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5 ultra:grid-cols-5">
+         <div className="rounded-xl border border-os-border bg-os-surface p-5">
+           <div className="text-xs uppercase tracking-wider text-os-muted">Followers</div>
+-          <div className="mt-2 text-3xl font-bold tracking-tight">{formatFollowers(followers)}</div>
++          <div className="mt-2 text-3xl font-bold tracking-tight">{formatFollowers(followers, regional.locale)}</div>
+         </div>
+         {(
+           [
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/app/social/beehiiv/page.tsx /mnt/data/_phase7/FounderOS-DEMO-main/app/social/beehiiv/page.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/app/social/beehiiv/page.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/app/social/beehiiv/page.tsx	2026-09-10 04:42:33.019364014 +0000
+@@ -3,13 +3,16 @@
+ import { getNewsletters, newsletterSummary } from '@/lib/newsletters';
+ import { beehiivSubscribers } from '@/lib/connectors/beehiiv';
+ import { NewsletterList } from '@/components/NewsletterList';
++import { formatNumber } from '@/lib/i18n/format';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
+ 
+ export const dynamic = 'force-dynamic';
+ 
+-const fmt = (n: number | null) => (n == null ? '—' : n.toLocaleString('en-US'));
+ const pct = (n: number) => `${n.toFixed(1)}%`;
+ 
+ export default async function BeehiivDashboardPage() {
++  const regional = await getRequestRegionalSettings();
++  const fmt = (n: number | null) => (n == null ? '—' : formatNumber(n, regional.locale));
+   const [newsletters, subscribers] = await Promise.all([getNewsletters(), beehiivSubscribers()]);
+   const summary = newsletterSummary(newsletters);
+   const live = subscribers != null; // a real key resolved a subscriber count
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/AgentActivityFeed.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/AgentActivityFeed.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/AgentActivityFeed.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/AgentActivityFeed.tsx	2026-09-10 04:47:08.261169531 +0000
+@@ -3,6 +3,7 @@
+ import { useState } from 'react';
+ import { RefreshCw } from 'lucide-react';
+ import type { ActivityEvent } from '@/lib/schemas';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ /**
+  * The live agent activity feed for the /agents page — one newest-first stream
+@@ -15,11 +16,6 @@
+   broadcast: { label: 'cast', cls: 'text-os-text' },
+ };
+ 
+-function clock(iso: string): string {
+-  const t = Date.parse(iso);
+-  if (Number.isNaN(t)) return '';
+-  return new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+-}
+ 
+ export function AgentActivityFeed({
+   initialEvents,
+@@ -28,6 +24,8 @@
+   initialEvents: ActivityEvent[];
+   agentNames: Record<string, string>;
+ }) {
++  const { date } = useI18n();
++  const clock = (iso: string) => date(iso, { hour: '2-digit', minute: '2-digit' });
+   const [events, setEvents] = useState<ActivityEvent[]>(initialEvents);
+   const [loading, setLoading] = useState(false);
+ 
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/AudienceConsistency.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/AudienceConsistency.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/AudienceConsistency.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/AudienceConsistency.tsx	2026-09-10 04:43:58.622952246 +0000
+@@ -2,6 +2,9 @@
+ 
+ import { useEffect, useMemo, useState } from 'react';
+ import { Maximize2, X } from 'lucide-react';
++import { useI18n } from '@/components/i18n/I18nProvider';
++import { formatDateUtc } from '@/lib/i18n/format';
++import type { SupportedLocale } from '@/lib/i18n/locales';
+ import {
+   bucketPostingByDay,
+   dateAxis,
+@@ -40,8 +43,8 @@
+ const colorFor = (p: string): string => COLORS[p] ?? 'var(--accent)';
+ const labelFor = (p: string): string => LABELS[p] ?? p.charAt(0).toUpperCase() + p.slice(1);
+ 
+-function fmtDay(d: string): string {
+-  return new Date(`${d}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
++function fmtDay(d: string, locale: SupportedLocale): string {
++  return formatDateUtc(`${d}T00:00:00Z`, locale, { month: 'short', day: 'numeric' });
+ }
+ 
+ function RangeChips({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
+@@ -74,12 +77,16 @@
+   platforms,
+   audClass,
+   postClass,
++  locale,
++  formatNumber,
+ }: {
+   axis: string[];
+   audienceVals: (number | null)[];
+   days: PostingActivityDay[];
+   platforms: string[];
+   audClass: string;
++  locale: SupportedLocale;
++  formatNumber: (value: number) => string;
+   postClass: string;
+ }) {
+   const [hover, setHover] = useState<number | null>(null);
+@@ -151,7 +158,7 @@
+       </div>
+ 
+       <div className="mt-1.5 flex justify-between font-mono text-[9.5px] text-os-dim">
+-        <span>{axis[0] ? fmtDay(axis[0]) : ''}</span>
++        <span>{axis[0] ? fmtDay(axis[0], locale) : ''}</span>
+         <span>today</span>
+       </div>
+ 
+@@ -191,7 +198,7 @@
+       </div>
+ 
+       <div className="mt-1.5 flex justify-between font-mono text-[9.5px] text-os-dim">
+-        <span>{axis[0] ? fmtDay(axis[0]) : ''}</span>
++        <span>{axis[0] ? fmtDay(axis[0], locale) : ''}</span>
+         <span>today</span>
+       </div>
+ 
+@@ -204,9 +211,9 @@
+         >
+           <div className="min-w-[150px] rounded-sm-t border border-os-border-strong bg-os-bg/95 px-2.5 py-2 font-mono shadow-lg backdrop-blur-xs">
+             <div className="mb-1 flex items-center justify-between gap-3 text-[10px] text-os-dim">
+-              <span>{axis[hover] ? fmtDay(axis[hover]) : ''}</span>
++              <span>{axis[hover] ? fmtDay(axis[hover], locale) : ''}</span>
+               <span className="text-os-muted">
+-                {audienceVals[hover] != null ? audienceVals[hover]!.toLocaleString('en-US') : '—'} aud
++                {audienceVals[hover] != null ? formatNumber(audienceVals[hover]!) : '—'} aud
+               </span>
+             </div>
+             {hoverEntries.length === 0 ? (
+@@ -264,6 +271,7 @@
+   /** Rendered as a right-hand column sharing the card with the charts. */
+   aside?: React.ReactNode;
+ }) {
++  const { regional, number: formatNumber } = useI18n();
+   const [range, setRange] = useState<Range>(30);
+   const [expanded, setExpanded] = useState(false);
+ 
+@@ -306,7 +314,7 @@
+   const netLabel = (
+     <span className={`font-mono text-[11px] ${net >= 0 ? 'text-os-ok' : 'text-os-err'}`}>
+       {net >= 0 ? '▲' : '▼'} {net >= 0 ? '+' : ''}
+-      {net.toLocaleString('en-US')} net
++      {formatNumber(net)} net
+     </span>
+   );
+ 
+@@ -339,6 +347,8 @@
+             platforms={platforms}
+             audClass="min-h-[140px] grow-[1.6] basis-[140px]"
+             postClass="min-h-[84px] grow basis-[84px]"
++            locale={regional.locale}
++            formatNumber={formatNumber}
+           />
+ 
+           <PlatformLegend platforms={platforms} days={days} />
+@@ -389,6 +399,8 @@
+                 platforms={platforms}
+                 audClass="h-[clamp(240px,40vh,420px)]"
+                 postClass="h-[clamp(160px,26vh,300px)]"
++                locale={regional.locale}
++                formatNumber={formatNumber}
+               />
+               <PlatformLegend platforms={platforms} days={days} />
+             </div>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/BrainDump.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/BrainDump.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/BrainDump.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/BrainDump.tsx	2026-09-10 04:41:41.606931990 +0000
+@@ -10,6 +10,7 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { Mic, MicOff, BrainCircuit, Upload } from 'lucide-react';
+ import { VENTURES } from '@/lib/ventures';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ const FOLDERS = ['inbox', 'ideas', 'people', 'companies', 'meetings', 'projects', 'writing'];
+ 
+@@ -37,6 +38,7 @@
+ const MAX_DOC_BYTES = 1_000_000; // embedding a monster helps nobody
+ 
+ export function BrainDump({ compact = false }: { compact?: boolean }) {
++  const { regional } = useI18n();
+   const [text, setText] = useState('');
+   const [title, setTitle] = useState('');
+   const [folder, setFolder] = useState('inbox');
+@@ -70,7 +72,7 @@
+     baseTextRef.current = text ? `${text.trim()} ` : '';
+     rec.continuous = true;
+     rec.interimResults = true;
+-    rec.lang = 'en-US';
++    rec.lang = regional.locale;
+     rec.onresult = (event) => {
+       let transcript = '';
+       for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/BusinessIncomeChart.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/BusinessIncomeChart.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/BusinessIncomeChart.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/BusinessIncomeChart.tsx	2026-09-10 04:37:43.627129790 +0000
+@@ -2,6 +2,8 @@
+ 
+ import { useState } from 'react';
+ import type { BusinessSeries, IncomeRange, MonthPoint } from '@/lib/bank-statements';
++import { useI18n } from '@/components/i18n/I18nProvider';
++import { formatCurrencyCode, formatDateUtc } from '@/lib/i18n/format';
+ 
+ const RANGES: { label: string; value: IncomeRange }[] = [
+   { label: '30 days', value: 1 },
+@@ -22,15 +24,15 @@
+ const metricCents = (m: MonthPoint, metric: Metric): number =>
+   metric === 'in' ? m.creditsCents : metric === 'out' ? m.debitsCents : m.netCents;
+ 
+-const usd = (cents: number) =>
+-  (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+-const signedUsd = (cents: number) => `${cents < 0 ? '−' : '+'}${usd(Math.abs(cents))}`;
+-const fmtMonth = (m: string) => new Date(`${m}-01T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+ 
+ /** Per-business bank-statement money with range + metric dropdowns — money
+     in (deposits), money out (outflow), or the net that's left after it, as a
+     total over the window plus monthly bars. Statements are monthly, 30d≈1mo. */
+ export function BusinessIncomeChart({ series }: { series: BusinessSeries }) {
++  const { regional } = useI18n();
++  const usd = (cents: number) => formatCurrencyCode(cents / 100, regional.locale, 'USD', { maximumFractionDigits: 0 });
++  const signedUsd = (cents: number) => `${cents < 0 ? '−' : '+'}${usd(Math.abs(cents))}`;
++  const fmtMonth = (month: string) => formatDateUtc(`${month}-01T00:00:00Z`, regional.locale, { month: 'short' });
+   const [range, setRange] = useState<IncomeRange>('all');
+   const [metric, setMetric] = useState<Metric>('in');
+   const [hovered, setHovered] = useState<string | null>(null);
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/CommandPalette.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/CommandPalette.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/CommandPalette.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/CommandPalette.tsx	2026-09-10 04:35:03.635769496 +0000
+@@ -6,6 +6,7 @@
+ // Digit shortcuts (1–9) jump to views — derived from the sidebar's visible order
+ // so they stay in lockstep with the nav.
+ import { DIGIT_VIEWS } from '@/lib/nav';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ function isTyping(): boolean {
+   const el = document.activeElement;
+@@ -15,6 +16,7 @@
+ }
+ 
+ export function CommandPalette({ commands }: { commands: Command[] }) {
++  const { t } = useI18n();
+   const router = useRouter();
+   const [open, setOpen] = useState(false);
+   const [query, setQuery] = useState('');
+@@ -92,12 +94,12 @@
+               go(hits[index]);
+             }
+           }}
+-          placeholder="Jump anywhere — views, agents, tools…"
++          placeholder={t('palette.placeholder')}
+           className="w-full border-b border-os-border bg-transparent px-[18px] py-4 font-mono text-sm text-os-text outline-hidden placeholder:text-os-dim"
+         />
+         <ul className="max-h-80 overflow-y-auto p-1.5">
+           {hits.length === 0 && (
+-            <li className="px-4 py-6 text-center font-mono text-xs text-os-dim">No matches</li>
++            <li className="px-4 py-6 text-center font-mono text-xs text-os-dim">{t('palette.noMatches')}</li>
+           )}
+           {hits.map((command, i) => (
+             <li key={command.id}>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/ConductorPanel.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/ConductorPanel.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/ConductorPanel.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/ConductorPanel.tsx	2026-09-10 04:35:30.523875064 +0000
+@@ -13,6 +13,7 @@
+ import { ChevronLeft, ChevronRight, Send, X } from 'lucide-react';
+ import { SparkIcon } from '@/components/SparkIcon';
+ import { ConductorEmblem } from '@/components/ConductorEmblem';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ type Turn = { id: string; role: 'user' | 'assistant'; content: string; routedTo?: string };
+ type ScreenCtx = { title: string; context: string };
+@@ -26,6 +27,7 @@
+ const clampW = (w: number) => Math.min(MAX_W, Math.max(MIN_W, Math.round(w)));
+ 
+ export function ConductorPanel() {
++  const { t } = useI18n();
+   const pathname = usePathname() ?? '/';
+   const [open, setOpen] = useState(false);
+   // Alex controls the size: drag the left edge; the width persists
+@@ -168,8 +170,8 @@
+       {!open && (
+         <button
+           onClick={() => setOpen(true)}
+-          aria-label="Open the Conductor agent panel"
+-          title="Ask the Conductor about this screen"
++          aria-label={t('conductor.openAria')}
++          title={t('conductor.openTitle')}
+           className="group fixed bottom-5 right-5 z-40 flex items-center rounded-full border border-os-border-strong bg-os-surface/90 p-2.5 opacity-60 backdrop-blur-sm transition-all duration-300 hover:opacity-100 hover:pr-3.5"
+           style={{ transitionTimingFunction: 'var(--ease)', boxShadow: 'none' }}
+         >
+@@ -178,7 +180,7 @@
+             className="max-w-0 overflow-hidden whitespace-nowrap font-mono text-[10.5px] tracking-wide text-os-muted transition-all duration-300 group-hover:ml-2 group-hover:max-w-[130px]"
+             style={{ transitionTimingFunction: 'var(--ease)' }}
+           >
+-            Ask Conductor
++            {t('conductor.ask')}
+           </span>
+         </button>
+       )}
+@@ -197,7 +199,7 @@
+           onPointerDown={onHandleDown}
+           onPointerMove={onHandleMove}
+           onPointerUp={onHandleUp}
+-          title="Drag to resize"
++          title={t('conductor.dragResize')}
+           className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize hover:bg-os-accent/30"
+           style={{ touchAction: 'none' }}
+         />
+@@ -212,16 +214,16 @@
+           <button
+             onClick={() => persistWidth(widthRef.current + 140)}
+             disabled={width >= MAX_W}
+-            aria-label="Widen the panel"
+-            title="Wider"
++            aria-label={t('conductor.widen')}
++            title={t('conductor.widen')}
+             className="grid h-7 w-7 place-items-center rounded-full border border-os-border-strong bg-os-surface text-os-dim shadow-xs transition-colors hover:text-os-accent disabled:opacity-30"
+           >
+             <ChevronLeft className="h-3.5 w-3.5" />
+           </button>
+           <button
+             onClick={() => setOpen(false)}
+-            aria-label="Slide the panel away"
+-            title="Slide away"
++            aria-label={t('conductor.slideAway')}
++            title={t('conductor.slideAway')}
+             className="grid h-7 w-7 place-items-center rounded-full border border-os-border-strong bg-os-surface text-os-dim shadow-xs transition-colors hover:text-os-text"
+           >
+             <ChevronRight className="h-3.5 w-3.5" />
+@@ -232,12 +234,12 @@
+           <div className="min-w-0 flex-1">
+             <div className="text-[12.5px] font-bold tracking-[0.12em]">CONDUCTOR</div>
+             <div className="truncate font-mono text-[9.5px] uppercase tracking-wide text-os-dim">
+-              seeing: {ctx?.title ?? '…'}
++              {t('conductor.seeing', { title: ctx?.title ?? '…' })}
+             </div>
+           </div>
+           <button
+             onClick={() => setOpen(false)}
+-            aria-label="Close Conductor"
++            aria-label={t('conductor.close')}
+             className="shrink-0 rounded-sm-t p-1 text-os-dim transition-colors hover:text-os-text"
+           >
+             <X className="h-4 w-4" />
+@@ -256,9 +258,9 @@
+         <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+           {turns.length === 0 && (
+             <p className="pt-6 text-center font-mono text-[10.5px] leading-relaxed text-os-dim">
+-              Ask about this screen — the Conductor sees what you see
++              {t('conductor.emptyLine1')}
+               <br />
+-              and routes to the best-fit agent (@agent-id to force one).
++              {t('conductor.emptyLine2')}
+             </p>
+           )}
+           {turns.map((t) =>
+@@ -284,7 +286,7 @@
+           {sending && (
+             <div className="flex items-center gap-2">
+               <ConductorEmblem size={18} thinking />
+-              <span className="font-mono text-[10px] text-os-dim">routing…</span>
++              <span className="font-mono text-[10px] text-os-dim">{t('conductor.routing')}</span>
+             </div>
+           )}
+           {error && <p className="font-mono text-[10px] text-os-err">⚠ {error}</p>}
+@@ -295,14 +297,14 @@
+             value={input}
+             onChange={(e) => setInput(e.target.value)}
+             onKeyDown={(e) => e.key === 'Enter' && send()}
+-            placeholder={`Ask about ${ctx?.title ?? 'this screen'}…`}
++            placeholder={t('conductor.placeholder', { title: ctx?.title ?? t('common.view') })}
+             disabled={sending}
+             className="min-w-0 flex-1 rounded-full border border-os-border bg-os-bg px-3 py-1.5 text-xs text-os-text placeholder:text-os-dim focus:border-os-border-strong focus:outline-hidden"
+           />
+           <button
+             onClick={send}
+             disabled={sending || !input.trim()}
+-            aria-label="Send"
++            aria-label={t('conductor.send')}
+             className="flex shrink-0 items-center rounded-full border border-os-border-strong bg-os-surface2 px-3 py-1.5 text-os-text transition-opacity hover:border-os-dim disabled:opacity-40"
+           >
+             <Send className="h-3 w-3" />
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/FollowerBarChart.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/FollowerBarChart.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/FollowerBarChart.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/FollowerBarChart.tsx	2026-09-10 04:42:33.018944802 +0000
+@@ -1,5 +1,7 @@
+ import { followerBarModel, type FollowerPoint } from '@/lib/social-chart';
+ import { formatFollowers } from '@/components/SocialStats';
++import { formatNumber } from '@/lib/i18n/format';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
+ 
+ /**
+  * Follower history as a bar diagram — one bar per snapshot, y-axis on round
+@@ -7,7 +9,8 @@
+  * change. Server-rendered SVG; growth tips green, dips red, the newest bar
+  * runs full accent so "now" is unmistakable.
+  */
+-export function FollowerBarChart({ series }: { series: FollowerPoint[] }) {
++export async function FollowerBarChart({ series }: { series: FollowerPoint[] }) {
++  const { locale } = await getRequestRegionalSettings();
+   const model = followerBarModel(series);
+   if (model.bars.length === 0) {
+     return <p className="mt-4 text-xs text-os-dim">No snapshots yet — counts appear once a sync or scrape records this account.</p>;
+@@ -39,7 +42,7 @@
+           <g key={`yt-${v}`}>
+             <line x1={AXIS_L} x2={W - 8} y1={y} y2={y} stroke="var(--border)" strokeDasharray="2 5" />
+             <text x={AXIS_L - 8} y={y + 3} textAnchor="end" fill="var(--text-3)" fontSize={9} fontFamily="var(--font-mono)">
+-              {formatFollowers(v)}
++              {formatFollowers(v, locale)}
+             </text>
+           </g>
+         );
+@@ -63,8 +66,8 @@
+               opacity={newest ? 0.95 : 0.28 + b.h * 0.3}
+             >
+               <title>
+-                {`${b.date} · ${formatFollowers(b.followers)} followers${
+-                  b.delta == null ? '' : ` · ${b.delta >= 0 ? '+' : ''}${b.delta.toLocaleString('en-US')}`
++                {`${b.date} · ${formatFollowers(b.followers, locale)} followers${
++                  b.delta == null ? '' : ` · ${b.delta >= 0 ? '+' : ''}${formatNumber(b.delta, locale)}`
+                 }`}
+               </title>
+             </rect>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/FunnelNodeCard.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/FunnelNodeCard.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/FunnelNodeCard.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/FunnelNodeCard.tsx	2026-09-10 04:41:41.607634109 +0000
+@@ -13,6 +13,7 @@
+ import { originOf } from '@/lib/funnel-radial';
+ import { usd } from '@/lib/funnel-viz';
+ import type { CommsItem } from '@/lib/comms';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ const RELATIONSHIP_COLOR = {
+   hot: 'var(--funnel-hot)',
+@@ -79,6 +80,7 @@
+ }
+ 
+ export function FunnelNodeCard({ node, onClose }: { node: FunnelSpaceNode; onClose: () => void }) {
++  const { regional } = useI18n();
+   const origin = originOf(node);
+   const lastMsg = useLastMessage(node);
+   const who = node.person ?? node.name;
+@@ -139,11 +141,11 @@
+       </div>
+       {node.state === 'converted' && node.product && (
+         <div className="mt-2 rounded-sm-t border border-[color-mix(in_oklab,var(--ok)_35%,transparent)] bg-[color-mix(in_oklab,var(--ok)_9%,transparent)] px-2 py-1 font-mono text-[10px] text-os-ok">
+-          {node.product} · {usd(node.amountUsd ?? 0)}
++          {node.product} · {usd(node.amountUsd ?? 0, regional.locale)}
+         </div>
+       )}
+       {node.state !== 'converted' && (node.amountUsd ?? 0) > 0 && (
+-        <div className="mt-2 font-mono text-[10px] text-os-muted">deal value · {usd(node.amountUsd ?? 0)}</div>
++        <div className="mt-2 font-mono text-[10px] text-os-muted">deal value · {usd(node.amountUsd ?? 0, regional.locale)}</div>
+       )}
+       {node.state === 'stalled' && (
+         <div className="mt-2 rounded-sm-t border border-[color-mix(in_oklab,var(--err)_35%,transparent)] bg-[color-mix(in_oklab,var(--err)_9%,transparent)] px-2 py-1 font-mono text-[10px] text-os-err">
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/FunnelSpace.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/FunnelSpace.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/FunnelSpace.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/FunnelSpace.tsx	2026-09-10 04:42:58.224857078 +0000
+@@ -19,6 +19,7 @@
+ import { decayedColor, decayedOpacity, easeInOut, orbitSpread, rnd, smoothK, usd } from '@/lib/funnel-viz';
+ import { FunnelNodeCard } from '@/components/FunnelNodeCard';
+ import type { FunnelSummary } from '@/lib/schemas';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ const W = 1100;
+ const H = 460;
+@@ -98,6 +99,7 @@
+   /** Deep link (?lead=) — the attention rail pins this lead's dossier. */
+   initialLeadId?: string | null;
+ }) {
++  const { regional } = useI18n();
+   const [selectedId, setSelectedId] = useState<string | null>(null);
+   const [hoverId, setHoverId] = useState<string | null>(null);
+   const [isFullscreen, setIsFullscreen] = useState(false);
+@@ -273,7 +275,7 @@
+               {(emphasized) && (
+                 <text y={-n.radius - 9} textAnchor="middle" fill="var(--text)" fontSize={11} fontFamily="var(--font-mono)" style={{ pointerEvents: 'none' }}>
+                   {n.name}
+-                  {n.state === 'converted' && n.amountUsd != null ? ` · ${usd(n.amountUsd)}` : ''}
++                  {n.state === 'converted' && n.amountUsd != null ? ` · ${usd(n.amountUsd, regional.locale)}` : ''}
+                 </text>
+               )}
+             </g>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/HomeSocialGraph.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/HomeSocialGraph.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/HomeSocialGraph.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/HomeSocialGraph.tsx	2026-09-10 04:41:41.605999964 +0000
+@@ -3,6 +3,7 @@
+ import { useEffect, useMemo, useState } from 'react';
+ import Link from 'next/link';
+ import { ArrowUpRight, Maximize2, X } from 'lucide-react';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ type Range = 7 | 30 | 60 | 'all';
+ const RANGES: Range[] = [7, 30, 60, 'all'];
+@@ -12,9 +13,6 @@
+ type LabelledSeries = { key: string; label: string; color: string; points: SeriesPoint[] };
+ type PostSeries = { key: string; label: string; color: string; points: { date: string; count: number }[]; total: number };
+ 
+-function fmtNum(n: number | null): string {
+-  return n === null ? '—' : n.toLocaleString('en-US');
+-}
+ function fmtPct(n: number | null): string {
+   if (n === null || Number.isNaN(n)) return '—';
+   const r = Math.abs(n) < 10 ? n.toFixed(2) : n.toFixed(1);
+@@ -337,6 +335,8 @@
+ /** The fully built-out social graph: every channel plotted over the range,
+     with an Expand affordance into the fullscreen audience + posting modal. */
+ export function HomeSocialGraph({ series, posting = [] }: { series: LabelledSeries[]; posting?: PostSeries[] }) {
++  const { number } = useI18n();
++  const fmtNum = (n: number | null) => (n === null ? '—' : number(n));
+   const [range, setRange] = useState<Range>('all');
+   const [open, setOpen] = useState(false);
+   // Default: every individual channel on (the aggregate "all" is opt-in so it
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/KnowledgeDetail.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/KnowledgeDetail.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/KnowledgeDetail.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/KnowledgeDetail.tsx	2026-09-10 04:41:05.642751446 +0000
+@@ -11,6 +11,7 @@
+ import type { Personnel } from '@/lib/personnel';
+ import type { MemoryGraph, MemoryNode } from '@/lib/memory-core';
+ import type { Person, RosterClient, SopTask } from '@/lib/schemas';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ import {
+   playbookFor, autonomyLabel, statusLabel, AUTONOMY_LEVELS,
+   type AutonomyLevel, type PlaybookStatus,
+@@ -307,6 +308,7 @@
+   color: string;
+   onClose?: () => void;
+ }) {
++  const { currencyCode } = useI18n();
+   const source = clients[0]?.source ?? 'funnel';
+   const isLost = (status: string) => status.toLowerCase().includes('lost');
+   const converted = clients.filter((c) => isActiveClient(c.status));
+@@ -334,7 +336,7 @@
+                     key={c.id}
+                     color={color}
+                     title={c.name}
+-                    sub={c.amountUsd ? `$${c.amountUsd.toLocaleString('en-US')}` : 'active client'}
++                    sub={c.amountUsd ? currencyCode(c.amountUsd, 'USD', { maximumFractionDigits: 0 }) : 'active client'}
+                   />
+                 ))}
+             </div>
+@@ -349,7 +351,7 @@
+                   key={c.id}
+                   color={color}
+                   title={c.name}
+-                  sub={c.amountUsd ? `$${c.amountUsd.toLocaleString('en-US')}` : c.status}
++                  sub={c.amountUsd ? currencyCode(c.amountUsd, 'USD', { maximumFractionDigits: 0 }) : c.status}
+                 />
+               ))}
+             </div>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/LeadMagnets.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/LeadMagnets.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/LeadMagnets.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/LeadMagnets.tsx	2026-09-10 04:42:33.018801386 +0000
+@@ -2,6 +2,9 @@
+ import { CopyLink } from '@/components/CopyLink';
+ import { LeadMagnetRowActions } from '@/components/LeadMagnetRowActions';
+ import type { LeadMagnet } from '@/lib/schemas';
++import { formatDateUtc } from '@/lib/i18n/format';
++import type { SupportedLocale } from '@/lib/i18n/locales';
++import { getRequestRegionalSettings } from '@/lib/i18n/server';
+ 
+ /**
+  * Lead magnets, as a Notion-style database: a property table, not cards, so
+@@ -21,12 +24,8 @@
+   none: { Icon: Minus, label: 'None' },
+ } as const;
+ 
+-const dateLabel = (iso: string): string => {
+-  const d = new Date(`${iso}T00:00:00Z`);
+-  return Number.isNaN(d.getTime())
+-    ? iso
+-    : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+-};
++const dateLabel = (iso: string, locale: SupportedLocale): string =>
++  formatDateUtc(`${iso}T00:00:00Z`, locale, { month: 'short', day: 'numeric' });
+ 
+ const host = (url: string): string => {
+   try {
+@@ -36,7 +35,7 @@
+   }
+ };
+ 
+-export function LeadMagnets({
++export async function LeadMagnets({
+   rows,
+   showCopy = false,
+   manage = false,
+@@ -46,6 +45,7 @@
+   /** row controls (status, delete) — the full page, not the dashboard card */
+   manage?: boolean;
+ }) {
++  const { locale } = await getRequestRegionalSettings();
+   if (rows.length === 0) {
+     return (
+       <p className="rounded-lg-t border border-os-border bg-os-surface px-4 py-3 font-mono text-[10.5px] text-os-dim">
+@@ -110,7 +110,7 @@
+                 <td className="px-4 py-3 align-top text-[11.5px] leading-snug text-os-muted">{m.destination}</td>
+                 <td className="px-4 py-3 align-top text-[11.5px] leading-snug text-os-muted">{m.source}</td>
+                 <td className="whitespace-nowrap px-4 py-3 align-top font-mono text-[10.5px] text-os-dim">
+-                  {dateLabel(m.launchedAt)}
++                  {dateLabel(m.launchedAt, locale)}
+                 </td>
+                 {showCopy && (
+                   <td className="whitespace-nowrap px-4 py-3 align-top">
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/NewsletterList.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/NewsletterList.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/NewsletterList.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/NewsletterList.tsx	2026-09-10 04:41:41.605747373 +0000
+@@ -3,11 +3,9 @@
+ import { useState } from 'react';
+ import { ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
+ import type { Newsletter } from '@/lib/newsletters';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+-const fmt = (n: number) => n.toLocaleString('en-US');
+ const pct = (n: number) => `${n.toFixed(n < 10 ? 2 : 1)}%`;
+-const dateLabel = (iso: string) =>
+-  new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+ 
+ /** A labeled metric cell inside the expanded analytics grid. */
+ function Metric({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'ok' | 'warn' | 'err' }) {
+@@ -27,6 +25,8 @@
+  * (delivery, opens, clicks, unsubscribes, spam, web). Newest first.
+  */
+ export function NewsletterList({ newsletters }: { newsletters: Newsletter[] }) {
++  const { number: fmt, date } = useI18n();
++  const dateLabel = (iso: string) => date(iso, { month: 'short', day: 'numeric', year: 'numeric' });
+   const [openId, setOpenId] = useState<string | null>(null);
+ 
+   if (newsletters.length === 0) {
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/PostComposer.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/PostComposer.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/PostComposer.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/PostComposer.tsx	2026-09-10 04:41:41.606323182 +0000
+@@ -5,6 +5,7 @@
+ import { Send, Clock, Paperclip } from 'lucide-react';
+ import { Badge } from '@/components/terminal';
+ import type { SocialPost } from '@/lib/schemas';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ // Kept in sync with SocialPlatformSchema; defined here so this client
+ // component never imports server-only lib code.
+@@ -16,12 +17,10 @@
+   { id: 'linkedin', label: 'LinkedIn' },
+ ];
+ 
+-function fmtWhen(iso: string): string {
+-  const d = new Date(iso);
+-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+-}
+ 
+ export function PostComposer({ initialPosts }: { initialPosts: SocialPost[] }) {
++  const { date } = useI18n();
++  const fmtWhen = (iso: string) => date(iso, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+   const router = useRouter();
+   const [posts, setPosts] = useState<SocialPost[]>(initialPosts);
+   const [caption, setCaption] = useState('');
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/Sidebar.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/Sidebar.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/Sidebar.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/Sidebar.tsx	2026-09-10 04:34:47.403159903 +0000
+@@ -6,6 +6,8 @@
+ import { OsMark } from '@/components/OsMark';
+ import { usePathname } from 'next/navigation';
+ import { NAV_OPERATE, NAV_AGENTS, NAV_INTELLIGENCE, NAV_SYSTEM, NAV_LIBRARY, type NavItem } from '@/lib/nav';
++import { useI18n } from '@/components/i18n/I18nProvider';
++import type { MessageKey, MessageParams } from '@/lib/i18n/catalog';
+ 
+ function NavGroup({
+   title,
+@@ -13,12 +15,14 @@
+   pathname,
+   collapsed,
+   onTip,
++  t,
+ }: {
+   title: string;
+   items: NavItem[];
+   pathname: string;
+   collapsed: boolean;
+   onTip: (tip: { label: string; y: number } | null) => void;
++  t: (key: MessageKey, params?: MessageParams) => string;
+ }) {
+   return (
+     <>
+@@ -31,7 +35,8 @@
+           {title}
+         </div>
+       )}
+-      {items.map(({ href, label, icon: Icon }) => {
++      {items.map(({ href, labelKey, icon: Icon }) => {
++        const label = t(labelKey);
+         const active = pathname === href || (href !== '/' && pathname.startsWith(`${href}/`));
+         return (
+           <Link
+@@ -66,6 +71,7 @@
+ const DEFAULT_W = 232;
+ 
+ export function Sidebar() {
++  const { t } = useI18n();
+   const pathname = usePathname();
+   const [live, setLive] = useState<{ up: number; total: number } | null>(null);
+   const [host, setHost] = useState<string | null>(null);
+@@ -175,7 +181,7 @@
+             <div>
+               <div className="text-[13px] font-bold tracking-[0.14em]">FOUNDER OS</div>
+               <div className="mt-[3px] whitespace-nowrap font-mono text-[9px] uppercase tracking-[0.16em] text-os-dim">
+-                v3 · Operator Mode
++                {t('sidebar.productVersion')} · {t('sidebar.operatorMode')}
+               </div>
+             </div>
+           </div>
+@@ -183,8 +189,8 @@
+         <button
+           type="button"
+           onClick={() => setCollapsed((c) => !c)}
+-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
++          title={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
++          aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
+           aria-expanded={!collapsed}
+           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm-t border border-transparent text-os-dim transition-colors hover:border-os-border hover:bg-os-surface2 hover:text-os-text"
+         >
+@@ -192,11 +198,11 @@
+         </button>
+       </div>
+       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-2">
+-        <NavGroup title="Operate" items={NAV_OPERATE} pathname={pathname} collapsed={collapsed} onTip={setTip} />
+-        <NavGroup title="Agents" items={NAV_AGENTS} pathname={pathname} collapsed={collapsed} onTip={setTip} />
+-        <NavGroup title="Intelligence" items={NAV_INTELLIGENCE} pathname={pathname} collapsed={collapsed} onTip={setTip} />
+-        <NavGroup title="System" items={NAV_SYSTEM} pathname={pathname} collapsed={collapsed} onTip={setTip} />
+-        <NavGroup title="Variants" items={NAV_LIBRARY} pathname={pathname} collapsed={collapsed} onTip={setTip} />
++        <NavGroup title={t('nav.group.operate')} items={NAV_OPERATE} pathname={pathname} collapsed={collapsed} onTip={setTip} t={t} />
++        <NavGroup title={t('nav.group.agents')} items={NAV_AGENTS} pathname={pathname} collapsed={collapsed} onTip={setTip} t={t} />
++        <NavGroup title={t('nav.group.intelligence')} items={NAV_INTELLIGENCE} pathname={pathname} collapsed={collapsed} onTip={setTip} t={t} />
++        <NavGroup title={t('nav.group.system')} items={NAV_SYSTEM} pathname={pathname} collapsed={collapsed} onTip={setTip} t={t} />
++        <NavGroup title={t('nav.group.variants')} items={NAV_LIBRARY} pathname={pathname} collapsed={collapsed} onTip={setTip} t={t} />
+       </nav>
+       <div
+         className={`flex flex-col gap-2 border-t border-os-border py-3.5 ${
+@@ -205,14 +211,14 @@
+       >
+         <div className="flex items-center gap-2 whitespace-nowrap font-mono text-[10px] text-os-muted">
+           <span className="dot ok pulse" />
+-          {!collapsed && <>{live ? `${live.up}/${live.total}` : '—/—'} systems live</>}
++          {!collapsed && <>{live ? t('sidebar.systemsLive', { up: live.up, total: live.total }) : t('sidebar.loadingSystems')}</>}
+         </div>
+         {!collapsed && (
+           // The host is read at runtime, so a deployed instance never claims to
+           // be localhost. Wraps rather than nowrap, which used to clip the line
+           // off the edge of the rail.
+           <div className="break-words font-mono text-[10px] leading-relaxed text-os-dim">
+-            {host ?? '…'} · sqlite · real agents
++            {t('sidebar.hostMeta', { host: host ?? '…' })}
+           </div>
+         )}
+       </div>
+@@ -234,8 +240,8 @@
+           onDoubleClick={() => setWidth(DEFAULT_W)}
+           role="separator"
+           aria-orientation="vertical"
+-          aria-label="Resize sidebar"
+-          title="Drag to resize · double-click to reset"
++          aria-label={t('sidebar.resize')}
++          title={t('sidebar.resetHint')}
+           className="absolute inset-y-0 -right-1 z-30 w-2 cursor-col-resize hover:bg-[var(--accent-soft)]"
+         />
+       )}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/SocialStatStrip.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/SocialStatStrip.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/SocialStatStrip.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/SocialStatStrip.tsx	2026-09-10 04:38:14.620046616 +0000
+@@ -5,6 +5,9 @@
+ import type { SocialGrowth } from '@/lib/schemas';
+ import type { DmThread } from '@/lib/social';
+ import { InstagramDmInbox } from '@/components/InstagramDmInbox';
++import { useI18n } from '@/components/i18n/I18nProvider';
++import { formatNumber } from '@/lib/i18n/format';
++import type { SupportedLocale } from '@/lib/i18n/locales';
+ 
+ type Range = 7 | 30 | 60 | 'all';
+ const RANGES: Range[] = [7, 30, 60, 'all'];
+@@ -19,9 +22,10 @@
+   const r = Math.abs(n) < 10 ? n.toFixed(2) : n.toFixed(1);
+   return `${n >= 0 ? '+' : ''}${r}%`;
+ }
+-function fmtNum(n: number | null): string {
+-  return n === null ? '—' : n.toLocaleString('en-US');
++function fmtNum(n: number | null, locale: SupportedLocale = 'pt-BR'): string {
++  return n === null ? '—' : formatNumber(n, locale);
+ }
++
+ function pctClass(n: number | null): string {
+   return n === null ? 'text-os-muted' : n >= 0 ? 'text-os-ok' : 'text-os-err';
+ }
+@@ -119,6 +123,7 @@
+   metric: 'audience' | 'dms';
+   onClose: () => void;
+ }) {
++  const { regional } = useI18n();
+   const [data, setData] = useState<LabelledSeries[] | null>(null);
+   const [range, setRange] = useState<Range>(30);
+   const [active, setActive] = useState<Set<string>>(new Set(metric === 'audience' ? ['all'] : ['total']));
+@@ -203,7 +208,7 @@
+                     <div key={s.key} className="flex items-center gap-2.5 text-[12px]">
+                       <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: s.color }} />
+                       <span className="min-w-0 flex-1 truncate">{s.label}</span>
+-                      <span className="font-mono text-os-muted">{fmtNum(latest)}</span>
++                      <span className="font-mono text-os-muted">{fmtNum(latest, regional.locale)}</span>
+                       <span className={`w-20 text-right font-mono font-semibold ${pctClass(g)}`}>{fmtPct(g)}</span>
+                     </div>
+                   );
+@@ -342,6 +347,7 @@
+   dmThreads: DmThread[];
+   nowMs: number;
+ }) {
++  const { regional } = useI18n();
+   const [audRange, setAudRange] = useState<Range>(30);
+   const [dmRange, setDmRange] = useState<Range>(30);
+   const [popout, setPopout] = useState<'audience' | 'dms' | 'inbox' | null>(null);
+@@ -357,7 +363,7 @@
+         <div className="flex flex-col gap-1 rounded-lg-t border border-os-border bg-os-surface px-3 py-2">
+           <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-os-dim">Total reach</span>
+           <div className="flex items-baseline justify-between gap-2">
+-            <span className="font-mono text-[20px] font-semibold leading-none tracking-[-0.02em]">{fmtNum(audienceTotal)}</span>
++            <span className="font-mono text-[20px] font-semibold leading-none tracking-[-0.02em]">{fmtNum(audienceTotal, regional.locale)}</span>
+             <span className="min-w-0 truncate font-mono text-[9.5px] text-os-dim">{platformsCount} platforms + email</span>
+           </div>
+         </div>
+@@ -367,7 +373,7 @@
+           label="Audience growth"
+           headline={fmtPct(audPct)}
+           headlineClass={pctClass(audPct)}
+-          sub={`${fmtNum(audienceTotal)} total audience`}
++          sub={`${fmtNum(audienceTotal, regional.locale)} total audience`}
+           range={audRange}
+           onRange={setAudRange}
+           onOpen={() => setPopout('audience')}
+@@ -376,7 +382,7 @@
+         {/* Total DMs — interactive (kept exactly) */}
+         <MetricTile
+           label="Total DMs"
+-          headline={fmtNum(totalDms)}
++          headline={fmtNum(totalDms, regional.locale)}
+           sub={
+             <span className="flex items-center gap-1">
+               <span className={pctClass(dmPct)}>{fmtPct(dmPct)}</span>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/SocialStats.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/SocialStats.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/SocialStats.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/SocialStats.tsx	2026-09-10 04:37:29.205952769 +0000
+@@ -1,9 +1,12 @@
+ import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
++import { formatNumber } from '@/lib/i18n/format';
++import type { SupportedLocale } from '@/lib/i18n/locales';
+ 
+-export function formatFollowers(n: number | null): string {
+-  return n === null ? '—' : n.toLocaleString('en-US');
++export function formatFollowers(n: number | null, locale: SupportedLocale = 'pt-BR'): string {
++  return n === null ? '—' : formatNumber(n, locale);
+ }
+ 
++
+ export function formatPct(n: number | null): string {
+   if (n === null) return '—';
+   const rounded = Math.abs(n) < 10 ? n.toFixed(2) : n.toFixed(1);
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/StatementUploader.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/StatementUploader.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/StatementUploader.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/StatementUploader.tsx	2026-09-10 04:41:41.606570945 +0000
+@@ -3,10 +3,12 @@
+ import { useState } from 'react';
+ import { useRouter } from 'next/navigation';
+ import { Upload } from 'lucide-react';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ /** Phase-2 statement uploader: posts a bank/CC CSV to the ingestion route, then
+     refreshes so the expenses-by-category section reflects the real parsed spend. */
+ export function StatementUploader() {
++  const { currencyCode } = useI18n();
+   const router = useRouter();
+   const [status, setStatus] = useState<string | null>(null);
+   const [busy, setBusy] = useState(false);
+@@ -30,7 +32,7 @@
+       if (!res.ok) {
+         setStatus(`✗ ${data.error ?? 'upload failed'}`);
+       } else if (isPdf) {
+-        setStatus(`✓ ${data.summary.business} ${data.summary.month}: ${'$' + (data.summary.creditsCents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 })} in`);
++        setStatus(`✓ ${data.summary.business} ${data.summary.month}: ${currencyCode(data.summary.creditsCents / 100, data.summary.currency ?? 'USD', { maximumFractionDigits: 0 })} in`);
+         router.refresh();
+       } else {
+         setStatus(`✓ ${data.inserted} new of ${data.parsed} parsed rows`);
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/ThemeToggle.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/ThemeToggle.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/ThemeToggle.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/ThemeToggle.tsx	2026-09-10 04:35:19.504492796 +0000
+@@ -3,6 +3,17 @@
+ import { useEffect, useRef, useState } from 'react';
+ import { Check, Palette } from 'lucide-react';
+ import { DEFAULT_THEME, resolveInitialTheme, THEME_META, THEME_STORAGE_KEY, THEMES, type Theme } from '@/lib/theme';
++import { useI18n } from '@/components/i18n/I18nProvider';
++import type { MessageKey } from '@/lib/i18n/catalog';
++
++const THEME_I18N: Record<Theme, { name: MessageKey; blurb: MessageKey }> = {
++  dark: { name: 'theme.dark.name', blurb: 'theme.dark.blurb' },
++  light: { name: 'theme.light.name', blurb: 'theme.light.blurb' },
++  midnight: { name: 'theme.midnight.name', blurb: 'theme.midnight.blurb' },
++  ember: { name: 'theme.ember.name', blurb: 'theme.ember.blurb' },
++  mono: { name: 'theme.mono.name', blurb: 'theme.mono.blurb' },
++  'mono-light': { name: 'theme.monoLight.name', blurb: 'theme.monoLight.blurb' },
++};
+ 
+ /**
+  * Theme picker: a palette chip in the topbar that opens the theme menu —
+@@ -12,6 +23,7 @@
+  * the next load, so this only reads the attribute back and keeps it in sync.
+  */
+ export function ThemeToggle() {
++  const { t } = useI18n();
+   const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
+   const [open, setOpen] = useState(false);
+   const rootRef = useRef<HTMLDivElement | null>(null);
+@@ -52,8 +64,8 @@
+     <div ref={rootRef} className="relative">
+       <button
+         onClick={() => setOpen((o) => !o)}
+-        title="Choose a theme"
+-        aria-label="Choose a theme"
++        title={t('theme.heading')}
++        aria-label={t('theme.heading')}
+         aria-expanded={open}
+         className="grid h-[30px] w-[30px] place-items-center rounded-sm-t border border-os-border bg-os-surface text-os-muted transition-colors hover:border-os-border-strong hover:text-os-text"
+       >
+@@ -62,14 +74,15 @@
+ 
+       {open && (
+         <div className="absolute right-0 top-9 z-50 w-56 rounded-sm-t border border-os-border-strong bg-os-surface p-1 shadow-lg">
+-          <div className="px-2 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-os-dim">Theme</div>
+-          {THEMES.map((t) => {
+-            const meta = THEME_META[t];
+-            const active = t === theme;
++          <div className="px-2 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.16em] text-os-dim">{t('theme.heading')}</div>
++          {THEMES.map((themeOption) => {
++            const meta = THEME_META[themeOption];
++            const labels = THEME_I18N[themeOption];
++            const active = themeOption === theme;
+             return (
+               <button
+-                key={t}
+-                onClick={() => apply(t)}
++                key={themeOption}
++                onClick={() => apply(themeOption)}
+                 className={`flex w-full items-center gap-2.5 rounded-sm-t px-2 py-1.5 text-left transition-colors ${
+                   active ? 'bg-os-surface-2' : 'hover:bg-os-surface-2'
+                 }`}
+@@ -84,8 +97,8 @@
+                   ))}
+                 </span>
+                 <span className="min-w-0 flex-1">
+-                  <span className="block text-[11px] font-semibold leading-tight">{meta.name}</span>
+-                  <span className="block truncate font-mono text-[9px] text-os-dim">{meta.blurb}</span>
++                  <span className="block text-[11px] font-semibold leading-tight">{t(labels.name)}</span>
++                  <span className="block truncate font-mono text-[9px] text-os-dim">{t(labels.blurb)}</span>
+                 </span>
+                 {active && <Check className="h-3.5 w-3.5 shrink-0 text-os-accent" />}
+               </button>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/Topbar.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/Topbar.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/Topbar.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/Topbar.tsx	2026-09-10 04:34:57.865338344 +0000
+@@ -5,18 +5,29 @@
+ import { ThemeToggle } from '@/components/ThemeToggle';
+ import { OsMark } from '@/components/OsMark';
+ import { CONDUCTOR_OPEN_EVENT } from '@/components/ConductorPanel';
++import { LocaleSwitcher } from '@/components/i18n/LocaleSwitcher';
++import { useI18n } from '@/components/i18n/I18nProvider';
++import type { MessageKey } from '@/lib/i18n/catalog';
+ 
+-const SEGMENT_LABELS: Record<string, string> = {
+-  '': 'home',
+-  social: 'social',
+-  comms: 'comms',
+-  agents: 'agents',
+-  org: 'org-chart',
+-  brain: 'g-brain',
+-  integrations: 'connections',
+-  roadmap: 'roadmap',
+-  analytics: 'analytics',
+-  reference: 'reference-model',
++const SEGMENT_LABELS: Record<string, MessageKey> = {
++  '': 'nav.home',
++  social: 'nav.social',
++  comms: 'nav.comms',
++  funnel: 'nav.funnel',
++  workflows: 'nav.workflows',
++  content: 'nav.content',
++  finances: 'nav.finances',
++  agents: 'nav.agents',
++  tasks: 'nav.tasks',
++  skills: 'nav.skills',
++  org: 'nav.orgChart',
++  brain: 'nav.knowledge',
++  doctor: 'nav.systemHealth',
++  integrations: 'nav.integrations',
++  roadmap: 'nav.roadmap',
++  analytics: 'nav.analytics',
++  reference: 'nav.referenceModel',
++  personas: 'nav.personas',
+ };
+ 
+ export function openPalette() {
+@@ -24,37 +35,38 @@
+ }
+ 
+ export function Topbar() {
++  const { t } = useI18n();
+   const pathname = usePathname();
+   const segment = pathname.split('/')[1] ?? '';
+-  const here = SEGMENT_LABELS[segment] ?? segment;
++  const key = SEGMENT_LABELS[segment];
++  const here = key ? t(key) : segment;
+ 
+   return (
+     <div className="sticky top-0 z-30 flex h-[52px] shrink-0 items-center gap-3.5 border-b border-os-border bg-os-bg2/70 px-6 backdrop-blur-sm">
+       <div className="flex items-center gap-[7px] whitespace-nowrap font-mono text-[11px] tracking-[0.04em] text-os-dim">
+-        <span>founder-os</span>
++        <span>{t('topbar.breadcrumbRoot')}</span>
+         <span className="opacity-45">/</span>
+         <span className="text-os-text">{here}</span>
+       </div>
+       <div className="ml-auto flex items-center gap-2.5">
++        <LocaleSwitcher />
+         <ThemeToggle />
+         <button
+           onClick={openPalette}
+-          title="Command palette (⌘K)"
++          title={t('topbar.commandPalette')}
++          aria-label={t('topbar.commandPalette')}
+           className="grid h-[30px] w-[30px] place-items-center rounded-sm-t border border-os-border bg-os-surface text-os-muted transition-colors hover:border-os-border-strong hover:text-os-text"
+         >
+           <Search className="h-3.5 w-3.5" />
+         </button>
+-        {/* the agent dock, on the far right where ⌘K used to sit — the
+-            Conductor answers about whatever screen you're on */}
+         <button
+           onClick={() => window.dispatchEvent(new CustomEvent(CONDUCTOR_OPEN_EVENT))}
+-          title="Ask the Conductor about this screen"
+-          aria-label="Open the Conductor agent panel"
++          title={t('topbar.askConductor')}
++          aria-label={t('topbar.openConductor')}
+           className="grid h-[30px] w-[30px] place-items-center rounded-sm-t border border-os-border bg-os-surface text-os-muted transition-colors hover:border-os-border-strong hover:text-os-accent"
+         >
+           <Bot className="h-3.5 w-3.5" />
+         </button>
+-        {/* the OS mark, anchoring the brand in the top-right corner */}
+         <OsMark size={26} className="ml-1 shrink-0" />
+       </div>
+     </div>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/WeekCalendar.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/WeekCalendar.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/WeekCalendar.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/WeekCalendar.tsx	2026-09-10 04:47:08.261249571 +0000
+@@ -1,6 +1,9 @@
++'use client';
++
+ import { Video } from 'lucide-react';
+ import type { CalEvent } from '@/lib/connectors/gcal';
+ import { assignLanes, hourBounds, type Interval } from '@/lib/calendar-layout';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+ const HOUR_PX = 46;
+ const GUTTER = 50;
+@@ -20,9 +23,6 @@
+   const hr = h % 12 === 0 ? 12 : h % 12;
+   return `${hr} ${ampm}`;
+ }
+-function fmtTime(iso: string): string {
+-  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+-}
+ 
+ type Placed = { ev: CalEvent; startMin: number; endMin: number };
+ 
+@@ -30,6 +30,8 @@
+     at their times and colored per account. Events with a video link join on
+     click. Times render in the machine's local timezone. */
+ export function WeekCalendar({ events, accounts, nowISO }: { events: CalEvent[]; accounts: Account[]; nowISO: string }) {
++  const { date } = useI18n();
++  const fmtTime = (iso: string) => date(iso, { hour: 'numeric', minute: '2-digit' });
+   const now = new Date(nowISO);
+   const base = localMidnight(now);
+ 
+@@ -92,7 +94,7 @@
+             return (
+               <div key={c.key} className={`border-l border-os-border px-2 py-2 text-center ${today ? 'bg-[var(--accent-soft)]' : ''}`}>
+                 <div className={`font-mono text-[9.5px] uppercase tracking-[0.12em] ${today ? 'text-os-accent' : 'text-os-dim'}`}>
+-                  {c.date.toLocaleDateString([], { weekday: 'short' })}
++                  {date(c.date, { weekday: 'short' })}
+                 </div>
+                 <div className={`text-[15px] font-semibold ${today ? 'text-os-accent' : 'text-os-text'}`}>{c.date.getDate()}</div>
+               </div>
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/WorkflowMap.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/WorkflowMap.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/WorkflowMap.tsx	2026-09-10 00:32:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/WorkflowMap.tsx	2026-09-10 04:47:08.261019434 +0000
+@@ -14,17 +14,9 @@
+ import { workflowStats } from '@/lib/workflow-stats';
+ import { toolBrand } from '@/lib/workflow-tool-brands';
+ import type { Workflow, WorkflowStep } from '@/lib/schemas';
++import { useI18n } from '@/components/i18n/I18nProvider';
+ 
+-/** Compact money: $14k, $120k, $233k, $850. */
+-function usd(n: number): string {
+-  if (n >= 1000) {
+-    const k = n / 1000;
+-    return `$${k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+-  }
+-  return `$${Math.round(n)}`;
+-}
+-
+-function StepCard({ step, toolLogos }: { step: WorkflowStep; toolLogos: Record<string, ReactNode> }) {
++function StepCard({ step, toolLogos, usd }: { step: WorkflowStep; toolLogos: Record<string, ReactNode>; usd: (value: number) => string }) {
+   const leaking = step.leakUsd != null;
+   const auto = step.automation;
+   return (
+@@ -153,6 +145,8 @@
+    *  never ships to the client). */
+   toolLogos?: Record<string, ReactNode>;
+ }) {
++  const { currencyCode } = useI18n();
++  const usd = (value: number) => currencyCode(value, 'USD', { notation: 'compact', maximumFractionDigits: 1 });
+   const [selectedId, setSelectedId] = useState(workflows[0]?.id ?? '');
+   const [extraByWf, setExtraByWf] = useState<Record<string, number>>({});
+ 
+@@ -226,7 +220,7 @@
+         <div className="flex items-center">
+           {current.steps.map((step, i) => (
+             <div key={step.id} className="flex items-stretch">
+-              <StepCard step={step} toolLogos={toolLogos} />
++              <StepCard step={step} toolLogos={toolLogos} usd={usd} />
+               {(i < current.steps.length - 1 || extra > 0) && <Edge label={step.edgeLabel} />}
+             </div>
+           ))}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/i18n/I18nProvider.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/i18n/I18nProvider.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/i18n/I18nProvider.tsx	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/i18n/I18nProvider.tsx	2026-09-10 04:32:55.811659405 +0000
+@@ -0,0 +1,36 @@
++'use client';
++
++import { createContext, useContext, useMemo, type ReactNode } from 'react';
++import { translate, type MessageKey, type MessageParams } from '@/lib/i18n/catalog';
++import { formatCurrency, formatCurrencyCode, formatDate, formatNumber } from '@/lib/i18n/format';
++import type { RegionalSettings } from '@/lib/i18n/locales';
++
++type I18nContextValue = {
++  regional: RegionalSettings;
++  t: (key: MessageKey, params?: MessageParams) => string;
++  number: (value: number, options?: Intl.NumberFormatOptions) => string;
++  currency: (value: number, options?: Omit<Intl.NumberFormatOptions, 'style' | 'currency'>) => string;
++  currencyCode: (value: number, currency: string, options?: Omit<Intl.NumberFormatOptions, 'style' | 'currency'>) => string;
++  date: (value: Date | string | number, options?: Intl.DateTimeFormatOptions) => string;
++};
++
++const I18nContext = createContext<I18nContextValue | null>(null);
++
++export function I18nProvider({ regional, children }: { regional: RegionalSettings; children: ReactNode }) {
++  const value = useMemo<I18nContextValue>(() => ({
++    regional,
++    t: (key, params) => translate(regional.locale, key, params),
++    number: (number, options) => formatNumber(number, regional.locale, options),
++    currency: (number, options) => formatCurrency(number, regional, options),
++    currencyCode: (number, currency, options) => formatCurrencyCode(number, regional.locale, currency, options),
++    date: (date, options) => formatDate(date, regional, options),
++  }), [regional]);
++
++  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
++}
++
++export function useI18n(): I18nContextValue {
++  const context = useContext(I18nContext);
++  if (!context) throw new Error('useI18n must be used inside I18nProvider');
++  return context;
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/components/i18n/LocaleSwitcher.tsx /mnt/data/_phase7/FounderOS-DEMO-main/components/i18n/LocaleSwitcher.tsx
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/components/i18n/LocaleSwitcher.tsx	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/components/i18n/LocaleSwitcher.tsx	2026-09-10 04:32:55.812662628 +0000
+@@ -0,0 +1,51 @@
++'use client';
++
++import { Languages } from 'lucide-react';
++import { useState } from 'react';
++import { LOCALE_LABELS, SUPPORTED_LOCALES, type SupportedLocale } from '@/lib/i18n/locales';
++import { useI18n } from './I18nProvider';
++
++export function LocaleSwitcher({ compact = true }: { compact?: boolean }) {
++  const { regional, t } = useI18n();
++  const [working, setWorking] = useState(false);
++
++  async function change(next: SupportedLocale) {
++    if (next === regional.locale || working) return;
++    setWorking(true);
++    try {
++      const response = await fetch('/api/i18n/locale', {
++        method: 'POST',
++        headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({ locale: next }),
++      });
++      if (!response.ok) throw new Error('locale_update_failed');
++
++      // Persist for authenticated users when the Control Plane is available.
++      await fetch('/api/control-plane/me/preferences', {
++        method: 'PATCH',
++        headers: { 'content-type': 'application/json' },
++        body: JSON.stringify({ locale: next }),
++      }).catch(() => null);
++      window.location.reload();
++    } finally {
++      setWorking(false);
++    }
++  }
++
++  return (
++    <label className="relative flex items-center" title={t('topbar.locale')}>
++      <Languages className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-os-dim" />
++      <select
++        value={regional.locale}
++        disabled={working}
++        onChange={(event) => void change(event.target.value as SupportedLocale)}
++        aria-label={t('topbar.locale')}
++        className={`h-[30px] rounded-sm-t border border-os-border bg-os-surface pl-7 text-[10px] text-os-muted outline-hidden hover:border-os-border-strong hover:text-os-text ${compact ? 'w-[92px] pr-1' : 'w-[190px] pr-2'}`}
++      >
++        {SUPPORTED_LOCALES.map((locale) => (
++          <option key={locale} value={locale}>{compact ? locale : LOCALE_LABELS[locale]}</option>
++        ))}
++      </select>
++    </label>
++  );
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/db/control-plane/0003_i18n_preferences.sql /mnt/data/_phase7/FounderOS-DEMO-main/db/control-plane/0003_i18n_preferences.sql
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/db/control-plane/0003_i18n_preferences.sql	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/db/control-plane/0003_i18n_preferences.sql	2026-09-10 04:33:21.365653879 +0000
+@@ -0,0 +1,34 @@
++-- Phase 7 — user presentation preferences for global FounderOS.
++-- Organization regional_preferences stay canonical for the business; these
++-- nullable fields are per-human presentation overrides only.
++
++CREATE TABLE IF NOT EXISTS control_plane.user_preferences (
++  user_id uuid PRIMARY KEY REFERENCES control_plane.users(id) ON DELETE CASCADE,
++  locale text CHECK (locale IS NULL OR locale IN ('pt-BR', 'pt-PT', 'es-419', 'en-US')),
++  country text CHECK (country IS NULL OR country ~ '^[A-Z]{2}$'),
++  currency text CHECK (currency IS NULL OR currency ~ '^[A-Z]{3}$'),
++  timezone text,
++  first_day_of_week integer CHECK (first_day_of_week IS NULL OR first_day_of_week BETWEEN 0 AND 6),
++  created_at timestamptz NOT NULL DEFAULT now(),
++  updated_at timestamptz NOT NULL DEFAULT now()
++);
++
++DROP TRIGGER IF EXISTS set_updated_at ON control_plane.user_preferences;
++CREATE TRIGGER set_updated_at
++BEFORE UPDATE ON control_plane.user_preferences
++FOR EACH ROW EXECUTE FUNCTION control_plane.touch_updated_at();
++
++ALTER TABLE control_plane.user_preferences ENABLE ROW LEVEL SECURITY;
++
++DROP POLICY IF EXISTS user_preferences_self_policy ON control_plane.user_preferences;
++CREATE POLICY user_preferences_self_policy ON control_plane.user_preferences
++  USING (user_id = control_plane.current_actor_id())
++  WITH CHECK (user_id = control_plane.current_actor_id());
++
++DO $$
++BEGIN
++  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'founder_os_app') THEN
++    EXECUTE 'GRANT SELECT, INSERT, UPDATE ON control_plane.user_preferences TO founder_os_app';
++  END IF;
++END;
++$$;
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/docs/architecture/i18n.md /mnt/data/_phase7/FounderOS-DEMO-main/docs/architecture/i18n.md
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/docs/architecture/i18n.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/docs/architecture/i18n.md	2026-09-10 04:45:32.529428083 +0000
+@@ -0,0 +1,85 @@
++# Internationalization & Regionalization Contract
++
++## Launch locales
++
++FounderOS launches with four product locales:
++
++- `pt-BR` — Portuguese, Brazil (product default)
++- `pt-PT` — Portuguese, Portugal
++- `es-419` — Spanish, Latin America (LATAM master catalog)
++- `en-US` — English, United States
++
++Country-specific Spanish catalogs such as `es-MX`, `es-CO`, `es-AR`, `es-CL` and `es-PE` may be introduced later without changing domain contracts. Until then, browser tags `es-*` resolve to `es-419`.
++
++## Locale is not geography
++
++The product must never infer business geography from UI language. These fields are independent:
++
++- `locale`
++- `country`
++- `currency`
++- `timezone`
++- `firstDayOfWeek`
++
++Examples that must remain valid:
++
++- `locale=en-US`, `country=BR`, `currency=BRL`, `timezone=America/Sao_Paulo`
++- `locale=es-419`, `country=CO`, `currency=COP`, `timezone=America/Bogota`
++
++`REGION_PRESETS` provides recommended launch defaults for BR, PT, MX, CO, AR, CL, PE and US. Presets are convenience data, not coupling rules.
++
++## Precedence
++
++Presentation locale is resolved in this order:
++
++1. `founderos.locale` cookie (immediate UI switch)
++2. authenticated user preference
++3. organization regional preference
++4. browser `Accept-Language`
++5. `pt-BR` product default
++
++For country, currency, timezone and first-day-of-week, user overrides take precedence over organization defaults, then product defaults.
++
++## Persistence
++
++Organization defaults live in `control_plane.regional_preferences`.
++Human presentation overrides live in `control_plane.user_preferences` and are protected by self-only PostgreSQL RLS using `control_plane.current_actor_id()`.
++
++Changing UI language does not silently mutate organization country or currency.
++
++## Network boundary
++
++`proxy.ts` is the trust boundary. It overwrites the following internal request headers before Server Components use them:
++
++- `x-founder-locale`
++- `x-founder-country`
++- `x-founder-currency`
++- `x-founder-timezone`
++- `x-founder-first-day-of-week`
++
++Client-supplied values with these names are not trusted.
++
++## Formatting
++
++User-facing numbers, money and dates must use helpers in `lib/i18n/format.ts` or `useI18n()`.
++Do not add hard-coded `en-US` formatter calls in `app/`, `components/` or `lib/`.
++
++A monetary value keeps its actual currency code. Locale controls presentation only. For example, USD data displayed under `pt-BR` remains USD but receives Brazilian formatting.
++
++Timezones are validated as IANA timezone identifiers before a user preference is persisted.
++
++## URL policy
++
++Authenticated product URLs are not locale-prefixed at launch. Locale is a presentation preference carried by cookie/session. This prevents duplicated application routes such as `/pt-BR/agents` and `/es-419/agents` and keeps internal links stable.
++
++A future public marketing site may use localized SEO routes independently of this application-shell policy.
++
++## Catalog policy
++
++Every new Axiom surface must ship all four translations in the same change. Catalog keys and named placeholders must have parity across all locales. `npm run i18n:verify` enforces this in CI.
++
++Legacy screens are translated while they are rebuilt in the Axiom Design System, avoiding a throw-away translation pass over UI that is scheduled for replacement.
++
++## `next-intl`
++
++The product-facing i18n API is intentionally adapter-friendly. The current foundation uses native `Intl` plus our own typed catalog contract. `next-intl` can be placed behind this boundary once dependency installation is performed in a registry-enabled runner; domain code must not depend directly on a vendor-specific i18n API.
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/beehiiv.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/beehiiv.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/beehiiv.ts	2026-08-17 18:04:42.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/beehiiv.ts	2026-09-10 04:42:33.020217251 +0000
+@@ -4,6 +4,8 @@
+ // lands, live subscriber count once it does. Same cache+timeout discipline as
+ // the Zernio connector.
+ 
++import { formatNumber } from '@/lib/i18n/format';
++import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+ const BEEHIIV_API = 'https://api.beehiiv.com/v2';
+ const TTL_MS = 60_000;
+ 
+@@ -74,7 +76,7 @@
+       name: 'Beehiiv (Email List)',
+       kind: 'social',
+       state: 'connected',
+-      detail: `${parsed.subscribers.toLocaleString('en-US')} subscribers`,
++      detail: `${formatNumber(parsed.subscribers, DEFAULT_LOCALE)} subscribers`,
+       meta: { subscribers: parsed.subscribers },
+     };
+   } catch (err) {
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/obsidian.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/obsidian.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/obsidian.ts	2026-08-17 18:04:42.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/obsidian.ts	2026-09-10 04:42:33.020498305 +0000
+@@ -3,6 +3,8 @@
+ import path from 'node:path';
+ import type { ConnectorStatus } from '@/lib/connectors/types';
+ 
++import { formatNumber } from '@/lib/i18n/format';
++import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+ const VAULT = process.env.OBSIDIAN_VAULT ?? path.join(os.homedir(), 'Documents', 'Notes Vault');
+ const WALK_CAP = 5000;
+ 
+@@ -96,7 +98,7 @@
+     name: 'Notes Vault',
+     kind: 'knowledge',
+     state: 'connected',
+-    detail: `${notes.toLocaleString('en-US')} markdown notes (incl. Chat Archive) at ${VAULT.replace(os.homedir(), '~')}`,
++    detail: `${formatNumber(notes, DEFAULT_LOCALE)} markdown notes (incl. Chat Archive) at ${VAULT.replace(os.homedir(), '~')}`,
+     meta: { notes },
+   };
+ }
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/wispr.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/wispr.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/wispr.ts	2026-08-17 18:04:42.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/wispr.ts	2026-09-10 04:42:33.020306475 +0000
+@@ -4,6 +4,8 @@
+ import Database from 'better-sqlite3';
+ import type { ConnectorStatus } from '@/lib/connectors/types';
+ 
++import { formatNumber } from '@/lib/i18n/format';
++import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+ const WISPR_DB = path.join(os.homedir(), 'Library', 'Application Support', 'Wispr Flow', 'flow.sqlite');
+ 
+ /**
+@@ -42,7 +44,7 @@
+         name: 'Wispr Flow',
+         kind: 'local',
+         state: 'connected',
+-        detail: `${dictations.toLocaleString('en-US')} dictations · ${notes} notes · ${todos} todos · ${meetings} meetings · last activity ${minutesAgo}m ago`,
++        detail: `${formatNumber(dictations, DEFAULT_LOCALE)} dictations · ${notes} notes · ${todos} todos · ${meetings} meetings · last activity ${minutesAgo}m ago`,
+         meta: { dictations, notes, todos, meetings },
+       };
+     } finally {
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/zernio.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/zernio.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/connectors/zernio.ts	2026-08-17 18:04:42.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/connectors/zernio.ts	2026-09-10 04:42:33.020411944 +0000
+@@ -4,6 +4,8 @@
+ import { CRED_FILES, resolveCred } from '@/lib/creds';
+ import type { ConnectorStatus } from '@/lib/connectors/types';
+ 
++import { formatNumber } from '@/lib/i18n/format';
++import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
+ const CONFIG_PATH = path.join(os.homedir(), '.config/social', 'config.json');
+ 
+ type ZernioConfig = {
+@@ -235,7 +237,7 @@
+       name: 'Zernio (Social)',
+       kind: 'social',
+       state: 'connected',
+-      detail: `${accounts.length} platforms (@founderos.ai) · ${followers.toLocaleString('en-US')} total followers`,
++      detail: `${accounts.length} platforms (@founderos.ai) · ${formatNumber(followers, DEFAULT_LOCALE)} total followers`,
+       meta: { platforms: accounts.length, followers },
+     };
+   } catch (err) {
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/api-policy.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/api-policy.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/api-policy.ts	2026-09-10 01:22:07.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/api-policy.ts	2026-09-10 04:41:05.641311405 +0000
+@@ -1,6 +1,6 @@
+ import type { PermissionKey } from './types';
+ 
+-const PUBLIC_AUTH_PATHS = ['/login', '/access-pending', '/api/auth/exchange', '/api/auth/dev-login'] as const;
++const PUBLIC_AUTH_PATHS = ['/login', '/access-pending', '/api/auth/exchange', '/api/auth/dev-login', '/api/i18n/locale'] as const;
+ 
+ export function isPublicAuthPath(pathname: string): boolean {
+   return PUBLIC_AUTH_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+@@ -16,6 +16,7 @@
+   if (!path.startsWith('/api/')) return null;
+   if (path.startsWith('/api/auth/')) return null;
+   if (path === '/api/control-plane/invitations/accept') return null;
++  if (path === '/api/control-plane/me/preferences') return null;
+   if (path === '/api/control-plane/invitations') return 'members.manage';
+   if (/^\/api\/agents\/[^/]+\/(run|chat)$/.test(path) || path === '/api/agents/broadcast' || path === '/api/agents/work') {
+     return 'agents.run';
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/index.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/index.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/index.ts	2026-09-10 01:18:12.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/index.ts	2026-09-10 04:36:37.809864906 +0000
+@@ -15,3 +15,5 @@
+ export * from './sessions';
+ export * from './members';
+ export * from './api-policy';
++
++export * from './preferences';
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/preferences.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/preferences.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/preferences.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/preferences.ts	2026-09-10 04:44:55.543372403 +0000
+@@ -0,0 +1,107 @@
++import type postgres from 'postgres';
++import { randomUUID } from 'node:crypto';
++import { z } from 'zod';
++import { getControlPlaneConnection } from './client';
++import { SupportedLocaleSchema } from './types';
++import type { AuthenticatedSession } from './sessions';
++import {
++  DEFAULT_REGIONAL_SETTINGS,
++  matchSupportedLocale,
++  sanitizeCountry,
++  sanitizeCurrency,
++  sanitizeFirstDayOfWeek,
++  sanitizeTimezone,
++  type RegionalSettings,
++} from '@/lib/i18n/locales';
++
++export const UserPreferencesPatchSchema = z.object({
++  locale: SupportedLocaleSchema.optional(),
++  country: z.string().trim().regex(/^[A-Za-z]{2}$/).transform((value) => value.toUpperCase()).optional(),
++  currency: z.string().trim().regex(/^[A-Za-z]{3}$/).transform((value) => value.toUpperCase()).optional(),
++  timezone: z.string().trim().min(1).max(100).refine((value) => sanitizeTimezone(value, '') === value, 'Invalid IANA timezone').optional(),
++  firstDayOfWeek: z.number().int().min(0).max(6).optional(),
++}).strict().refine((value) => Object.keys(value).length > 0, 'At least one preference is required');
++export type UserPreferencesPatch = z.infer<typeof UserPreferencesPatchSchema>;
++
++type RegionalRow = {
++  locale: string | null;
++  country: string | null;
++  currency: string | null;
++  timezone: string | null;
++  first_day_of_week: number | null;
++};
++
++/**
++ * Effective presentation settings. Human overrides win over organization
++ * defaults. Language, country, currency and timezone remain independent.
++ */
++export async function loadEffectiveRegionalSettings(
++  tx: postgres.TransactionSql,
++  userId: string,
++  organizationId: string | null,
++): Promise<RegionalSettings> {
++  const rows = await tx<RegionalRow[]>`
++    SELECT
++      COALESCE(up.locale, rp.locale, ${DEFAULT_REGIONAL_SETTINGS.locale}) AS locale,
++      COALESCE(up.country, rp.country, ${DEFAULT_REGIONAL_SETTINGS.country}) AS country,
++      COALESCE(up.currency, rp.currency, ${DEFAULT_REGIONAL_SETTINGS.currency}) AS currency,
++      COALESCE(up.timezone, rp.timezone, ${DEFAULT_REGIONAL_SETTINGS.timezone}) AS timezone,
++      COALESCE(up.first_day_of_week, rp.first_day_of_week, ${DEFAULT_REGIONAL_SETTINGS.firstDayOfWeek}) AS first_day_of_week
++    FROM (SELECT 1) seed
++    LEFT JOIN control_plane.user_preferences up ON up.user_id = ${userId}
++    LEFT JOIN control_plane.regional_preferences rp ON rp.organization_id = ${organizationId}
++    LIMIT 1
++  `;
++  const row = rows[0];
++  return {
++    locale: matchSupportedLocale(row?.locale) ?? DEFAULT_REGIONAL_SETTINGS.locale,
++    country: sanitizeCountry(row?.country),
++    currency: sanitizeCurrency(row?.currency),
++    timezone: sanitizeTimezone(row?.timezone),
++    firstDayOfWeek: sanitizeFirstDayOfWeek(row?.first_day_of_week),
++  };
++}
++
++export async function updateUserPreferences(input: {
++  session: AuthenticatedSession;
++  patch: UserPreferencesPatch;
++  requestId?: string;
++}): Promise<RegionalSettings> {
++  const patch = UserPreferencesPatchSchema.parse(input.patch);
++  const { sql } = getControlPlaneConnection();
++  return sql.begin(async (tx) => {
++    await tx`select set_config('founder_os.actor_id', ${input.session.user.id}, true)`;
++    if (input.session.organization) {
++      await tx`select set_config('founder_os.organization_id', ${input.session.organization.id}, true)`;
++    }
++
++    await tx`
++      INSERT INTO control_plane.user_preferences (
++        user_id, locale, country, currency, timezone, first_day_of_week
++      ) VALUES (
++        ${input.session.user.id}, ${patch.locale ?? null}, ${patch.country ?? null},
++        ${patch.currency ?? null}, ${patch.timezone ?? null}, ${patch.firstDayOfWeek ?? null}
++      )
++      ON CONFLICT (user_id) DO UPDATE SET
++        locale = COALESCE(EXCLUDED.locale, control_plane.user_preferences.locale),
++        country = COALESCE(EXCLUDED.country, control_plane.user_preferences.country),
++        currency = COALESCE(EXCLUDED.currency, control_plane.user_preferences.currency),
++        timezone = COALESCE(EXCLUDED.timezone, control_plane.user_preferences.timezone),
++        first_day_of_week = COALESCE(EXCLUDED.first_day_of_week, control_plane.user_preferences.first_day_of_week)
++    `;
++
++    if (input.session.organization) {
++      await tx`
++        INSERT INTO control_plane.access_audit_log (
++          id, organization_id, actor_id, action, target_type, target_id, request_id, metadata
++        ) VALUES (
++          ${randomUUID()}, ${input.session.organization.id}, ${input.session.user.id},
++          'user_preferences.updated', 'user', ${input.session.user.id}, ${input.requestId ?? null},
++          ${JSON.stringify({ fields: Object.keys(patch) })}::jsonb
++        )
++      `;
++    }
++
++    return loadEffectiveRegionalSettings(tx, input.session.user.id, input.session.organization?.id ?? null);
++  });
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/request-context.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/request-context.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/request-context.ts	2026-09-10 01:11:44.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/request-context.ts	2026-09-10 04:34:20.989714528 +0000
+@@ -21,5 +21,6 @@
+       : null,
+     roleKeys: session.roleKeys,
+     permissions: [...session.permissions],
++    regional: session.regional,
+   };
+ }
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/schema.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/schema.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/schema.ts	2026-09-10 01:12:05.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/schema.ts	2026-09-10 04:33:13.277197412 +0000
+@@ -72,6 +72,21 @@
+   },
+ );
+ 
++export const userPreferences = controlPlane.table(
++  'user_preferences',
++  {
++    userId: uuid('user_id')
++      .primaryKey()
++      .references(() => users.id, { onDelete: 'cascade' }),
++    locale: text('locale').$type<SupportedLocale>(),
++    country: text('country'),
++    currency: text('currency'),
++    timezone: text('timezone'),
++    firstDayOfWeek: integer('first_day_of_week'),
++    ...timestamps,
++  },
++);
++
+ export const memberships = controlPlane.table(
+   'memberships',
+   {
+@@ -299,6 +314,7 @@
+ 
+ export type ControlPlaneUser = typeof users.$inferSelect;
+ export type ControlPlaneOrganization = typeof organizations.$inferSelect;
++export type ControlPlaneUserPreference = typeof userPreferences.$inferSelect;
+ export type ControlPlaneMembership = typeof memberships.$inferSelect;
+ export type ControlPlaneWorkspaceBinding = typeof workspaceBindings.$inferSelect;
+ export type ControlPlaneUserIdentity = typeof userIdentities.$inferSelect;
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/sessions.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/sessions.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/sessions.ts	2026-09-10 01:20:37.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/sessions.ts	2026-09-10 04:33:54.400297608 +0000
+@@ -4,6 +4,8 @@
+ import { createOpaqueSessionToken, hashOpaqueToken } from './session-token';
+ import { AuthorizationError, assertPermission } from './rbac';
+ import type { PermissionKey } from './types';
++import { loadEffectiveRegionalSettings } from './preferences';
++import type { RegionalSettings } from '@/lib/i18n/locales';
+ 
+ export type AuthenticatedSession = {
+   id: string;
+@@ -28,6 +30,7 @@
+     engineOrganizationId: string | null;
+     engineWorkspaceId: string;
+   } | null;
++  regional: RegionalSettings;
+   expiresAt: Date;
+ };
+ 
+@@ -68,6 +71,7 @@
+   workspaceBindingId: string | null;
+   expiresAt: Date;
+ }): Promise<AuthenticatedSession> {
++  const regional = await loadEffectiveRegionalSettings(tx, input.userId, input.organizationId);
+   if (!input.organizationId) {
+     return {
+       id: input.sessionId,
+@@ -77,6 +81,7 @@
+       roleKeys: [],
+       permissions: new Set<PermissionKey>(),
+       workspace: null,
++      regional,
+       expiresAt: input.expiresAt,
+     };
+   }
+@@ -159,6 +164,7 @@
+     roleKeys: roleRows.map((row) => row.role_key),
+     permissions: new Set(permissionRows.map((row) => row.permission_key)),
+     workspace,
++    regional,
+     expiresAt: input.expiresAt,
+   };
+ }
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/types.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/types.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/control-plane/types.ts	2026-09-10 01:14:53.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/control-plane/types.ts	2026-09-10 04:48:46.410538742 +0000
+@@ -1,7 +1,8 @@
+ import { z } from 'zod';
++import { SUPPORTED_LOCALES, sanitizeTimezone, type SupportedLocale } from '@/lib/i18n/locales';
+ 
+-export const SupportedLocaleSchema = z.enum(['pt-BR', 'pt-PT', 'es-419', 'en-US']);
+-export type SupportedLocale = z.infer<typeof SupportedLocaleSchema>;
++export const SupportedLocaleSchema = z.enum(SUPPORTED_LOCALES);
++export type { SupportedLocale };
+ 
+ export const OrganizationStatusSchema = z.enum(['active', 'suspended', 'archived']);
+ export type OrganizationStatus = z.infer<typeof OrganizationStatusSchema>;
+@@ -26,7 +27,7 @@
+   locale: SupportedLocaleSchema,
+   country: z.string().regex(/^[A-Z]{2}$/),
+   currency: z.string().regex(/^[A-Z]{3}$/),
+-  timezone: z.string().min(1),
++  timezone: z.string().trim().min(1).max(100).refine((value) => sanitizeTimezone(value, '') === value, 'Invalid IANA timezone'),
+   firstDayOfWeek: z.number().int().min(0).max(6),
+ });
+ export type RegionPreferences = z.infer<typeof RegionPreferencesSchema>;
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/funnel-viz.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/funnel-viz.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/funnel-viz.ts	2026-08-17 18:04:42.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/funnel-viz.ts	2026-09-10 04:41:41.607322209 +0000
+@@ -1,3 +1,6 @@
++import { formatCurrencyCode } from '@/lib/i18n/format';
++import type { SupportedLocale } from '@/lib/i18n/locales';
++
+ /**
+  * Shared math for the two funnel canvases (flow + radial). Pure and
+  * client-safe — everything here must stay deterministic across SSR and
+@@ -14,7 +17,8 @@
+ 
+ export const easeInOut = (u: number): number => (u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2);
+ 
+-export const usd = (n: number): string => `$${Math.round(n).toLocaleString('en-US')}`;
++export const usd = (n: number, locale: SupportedLocale = 'pt-BR'): string =>
++  formatCurrencyCode(Math.round(n), locale, 'USD', { maximumFractionDigits: 0 });
+ 
+ /**
+  * Frame-rate independent smoothing factor: the fraction of remaining distance
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/catalog.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/catalog.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/catalog.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/catalog.ts	2026-09-10 04:32:55.807329470 +0000
+@@ -0,0 +1,27 @@
++import ptBR from './messages/pt-BR.json';
++import ptPT from './messages/pt-PT.json';
++import es419 from './messages/es-419.json';
++import enUS from './messages/en-US.json';
++import { DEFAULT_LOCALE, type SupportedLocale } from './locales';
++
++export type MessageKey = keyof typeof ptBR;
++export type MessageParams = Record<string, string | number>;
++
++const CATALOGS: Record<SupportedLocale, Record<MessageKey, string>> = {
++  'pt-BR': ptBR,
++  'pt-PT': ptPT,
++  'es-419': es419,
++  'en-US': enUS,
++};
++
++export function getCatalog(locale: SupportedLocale): Record<MessageKey, string> {
++  return CATALOGS[locale] ?? CATALOGS[DEFAULT_LOCALE];
++}
++
++export function translate(locale: SupportedLocale, key: MessageKey, params: MessageParams = {}): string {
++  const template = getCatalog(locale)[key] ?? CATALOGS[DEFAULT_LOCALE][key] ?? key;
++  return template.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, name: string) => {
++    const value = params[name];
++    return value === undefined ? match : String(value);
++  });
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/format.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/format.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/format.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/format.ts	2026-09-10 04:32:55.808346083 +0000
+@@ -0,0 +1,67 @@
++import type { RegionalSettings, SupportedLocale } from './locales';
++
++export type FormatContext = Pick<RegionalSettings, 'locale' | 'currency' | 'timezone'>;
++
++export function formatNumber(value: number, locale: SupportedLocale, options?: Intl.NumberFormatOptions): string {
++  return new Intl.NumberFormat(locale, options).format(value);
++}
++
++export function formatCompactNumber(value: number, locale: SupportedLocale): string {
++  return formatNumber(value, locale, { notation: 'compact', maximumFractionDigits: 1 });
++}
++
++export function formatCurrency(
++  value: number,
++  context: Pick<FormatContext, 'locale' | 'currency'>,
++  options?: Omit<Intl.NumberFormatOptions, 'style' | 'currency'>,
++): string {
++  return new Intl.NumberFormat(context.locale, {
++    style: 'currency',
++    currency: context.currency,
++    ...options,
++  }).format(value);
++}
++
++export function formatCurrencyCode(
++  value: number,
++  locale: SupportedLocale,
++  currency: string,
++  options?: Omit<Intl.NumberFormatOptions, 'style' | 'currency'>,
++): string {
++  return new Intl.NumberFormat(locale, {
++    style: 'currency',
++    currency,
++    ...options,
++  }).format(value);
++}
++
++export function formatDate(
++  value: Date | string | number,
++  context: Pick<FormatContext, 'locale' | 'timezone'>,
++  options?: Intl.DateTimeFormatOptions,
++): string {
++  const date = value instanceof Date ? value : new Date(value);
++  if (Number.isNaN(date.getTime())) return String(value);
++  return new Intl.DateTimeFormat(context.locale, {
++    timeZone: context.timezone,
++    ...options,
++  }).format(date);
++}
++
++export function formatDateUtc(
++  value: Date | string | number,
++  locale: SupportedLocale,
++  options?: Intl.DateTimeFormatOptions,
++): string {
++  return formatDate(value, { locale, timezone: 'UTC' }, options);
++}
++
++export function formatDateTime(
++  value: Date | string | number,
++  context: Pick<FormatContext, 'locale' | 'timezone'>,
++): string {
++  return formatDate(value, context, {
++    dateStyle: 'medium',
++    timeStyle: 'short',
++  });
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/locales.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/locales.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/locales.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/locales.ts	2026-09-10 04:44:55.543166502 +0000
+@@ -0,0 +1,125 @@
++export const SUPPORTED_LOCALES = ['pt-BR', 'pt-PT', 'es-419', 'en-US'] as const;
++export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
++
++export const DEFAULT_LOCALE: SupportedLocale = 'pt-BR';
++export const LOCALE_COOKIE = 'founderos.locale';
++
++export type RegionalSettings = {
++  locale: SupportedLocale;
++  country: string;
++  currency: string;
++  timezone: string;
++  firstDayOfWeek: number;
++};
++
++export const DEFAULT_REGIONAL_SETTINGS: RegionalSettings = {
++  locale: DEFAULT_LOCALE,
++  country: 'BR',
++  currency: 'BRL',
++  timezone: 'America/Sao_Paulo',
++  firstDayOfWeek: 1,
++};
++
++
++/** Recommended launch presets. They are suggestions only: a user may keep an
++ * English UI in Brazil, a BRL workspace in English, etc. Locale and geography
++ * remain independent throughout the domain model. */
++export const REGION_PRESETS = {
++  BR: { country: 'BR', locale: 'pt-BR', currency: 'BRL', timezone: 'America/Sao_Paulo', firstDayOfWeek: 1 },
++  PT: { country: 'PT', locale: 'pt-PT', currency: 'EUR', timezone: 'Europe/Lisbon', firstDayOfWeek: 1 },
++  MX: { country: 'MX', locale: 'es-419', currency: 'MXN', timezone: 'America/Mexico_City', firstDayOfWeek: 1 },
++  CO: { country: 'CO', locale: 'es-419', currency: 'COP', timezone: 'America/Bogota', firstDayOfWeek: 1 },
++  AR: { country: 'AR', locale: 'es-419', currency: 'ARS', timezone: 'America/Argentina/Buenos_Aires', firstDayOfWeek: 1 },
++  CL: { country: 'CL', locale: 'es-419', currency: 'CLP', timezone: 'America/Santiago', firstDayOfWeek: 1 },
++  PE: { country: 'PE', locale: 'es-419', currency: 'PEN', timezone: 'America/Lima', firstDayOfWeek: 1 },
++  US: { country: 'US', locale: 'en-US', currency: 'USD', timezone: 'America/New_York', firstDayOfWeek: 0 },
++} as const satisfies Record<string, RegionalSettings>;
++
++export type LaunchRegionCode = keyof typeof REGION_PRESETS;
++
++export const LOCALE_LABELS: Record<SupportedLocale, string> = {
++  'pt-BR': 'Português (Brasil)',
++  'pt-PT': 'Português (Portugal)',
++  'es-419': 'Español (Latinoamérica)',
++  'en-US': 'English (United States)',
++};
++
++export function isSupportedLocale(value: unknown): value is SupportedLocale {
++  return typeof value === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(value);
++}
++
++/**
++ * Product locale matching deliberately collapses generic/spanish-country tags
++ * into es-419 so LATAM has one stable master catalogue at launch.
++ */
++export function matchSupportedLocale(value: string | null | undefined): SupportedLocale | null {
++  if (!value) return null;
++  const normalized = value.trim().replace('_', '-');
++  if (isSupportedLocale(normalized)) return normalized;
++  const lower = normalized.toLowerCase();
++  if (lower === 'pt-pt' || lower.startsWith('pt-pt-')) return 'pt-PT';
++  if (lower === 'pt' || lower.startsWith('pt-')) return 'pt-BR';
++  if (lower === 'es' || lower.startsWith('es-')) return 'es-419';
++  if (lower === 'en' || lower.startsWith('en-')) return 'en-US';
++  return null;
++}
++
++export function negotiateLocale(input: {
++  cookie?: string | null;
++  acceptLanguage?: string | null;
++  preferred?: string | null;
++  fallback?: SupportedLocale;
++}): SupportedLocale {
++  const cookie = matchSupportedLocale(input.cookie);
++  if (cookie) return cookie;
++
++  const preferred = matchSupportedLocale(input.preferred);
++  if (preferred) return preferred;
++
++  const weighted = (input.acceptLanguage ?? '')
++    .split(',')
++    .map((entry, index) => {
++      const [tag, ...params] = entry.trim().split(';');
++      const qParam = params.find((part) => part.trim().startsWith('q='));
++      const q = qParam ? Number.parseFloat(qParam.trim().slice(2)) : 1;
++      return { tag, q: Number.isFinite(q) ? q : 0, index };
++    })
++    .filter((entry) => entry.tag && entry.q > 0)
++    .sort((a, b) => b.q - a.q || a.index - b.index);
++
++  for (const entry of weighted) {
++    const locale = matchSupportedLocale(entry.tag);
++    if (locale) return locale;
++  }
++  return input.fallback ?? DEFAULT_LOCALE;
++}
++
++export function sanitizeCountry(value: string | null | undefined, fallback = DEFAULT_REGIONAL_SETTINGS.country) {
++  const country = value?.trim().toUpperCase();
++  return country && /^[A-Z]{2}$/.test(country) ? country : fallback;
++}
++
++export function sanitizeCurrency(value: string | null | undefined, fallback = DEFAULT_REGIONAL_SETTINGS.currency) {
++  const currency = value?.trim().toUpperCase();
++  return currency && /^[A-Z]{3}$/.test(currency) ? currency : fallback;
++}
++
++export function sanitizeFirstDayOfWeek(value: string | number | null | undefined, fallback = DEFAULT_REGIONAL_SETTINGS.firstDayOfWeek) {
++  const parsed = typeof value === 'number' ? value : Number.parseInt(value ?? '', 10);
++  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 6 ? parsed : fallback;
++}
++
++
++export function sanitizeTimezone(
++  value: string | null | undefined,
++  fallback = DEFAULT_REGIONAL_SETTINGS.timezone,
++): string {
++  const timezone = value?.trim();
++  if (!timezone) return fallback;
++  try {
++    new Intl.DateTimeFormat('en', { timeZone: timezone }).format(0);
++    return timezone;
++  } catch {
++    return fallback;
++  }
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/en-US.json /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/en-US.json
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/en-US.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/en-US.json	2026-09-10 04:32:14.477796505 +0000
+@@ -0,0 +1,107 @@
++{
++  "common.loading": "Loading",
++  "common.save": "Save",
++  "common.cancel": "Cancel",
++  "common.close": "Close",
++  "common.search": "Search",
++  "common.view": "View",
++  "common.tool": "Tool",
++  "common.agent": "Agent",
++  "common.connected": "Connected",
++  "common.active": "Active",
++  "common.error": "Error",
++  "common.success": "Success",
++  "common.pending": "Pending",
++  "common.system": "System",
++  "common.organization": "Organization",
++  "nav.group.operate": "Operate",
++  "nav.group.agents": "Agents",
++  "nav.group.intelligence": "Intelligence",
++  "nav.group.system": "System",
++  "nav.group.variants": "Variants",
++  "nav.home": "Home",
++  "nav.comms": "Comms",
++  "nav.funnel": "Funnel",
++  "nav.workflows": "Workflows",
++  "nav.social": "Social",
++  "nav.content": "Content",
++  "nav.finances": "Finances",
++  "nav.agents": "Agents",
++  "nav.tasks": "Tasks",
++  "nav.skills": "Skills",
++  "nav.orgChart": "Org chart",
++  "nav.knowledge": "Knowledge",
++  "nav.systemHealth": "System health",
++  "nav.integrations": "Integrations",
++  "nav.roadmap": "Roadmap",
++  "nav.analytics": "Analytics",
++  "nav.referenceModel": "Reference model",
++  "nav.personas": "Personas",
++  "sidebar.operatorMode": "Operator mode",
++  "sidebar.expand": "Expand sidebar",
++  "sidebar.collapse": "Collapse sidebar",
++  "sidebar.resize": "Resize sidebar",
++  "sidebar.resetHint": "Drag to resize · double-click to reset",
++  "sidebar.systemsLive": "{up}/{total} systems live",
++  "sidebar.hostMeta": "{host} · control plane · real agents",
++  "sidebar.loadingSystems": "—/— systems",
++  "sidebar.productVersion": "v3",
++  "sidebar.statusLive": "Operational",
++  "topbar.commandPalette": "Command palette (⌘K)",
++  "topbar.askConductor": "Ask the Orchestrator about this screen",
++  "topbar.openConductor": "Open the Orchestrator panel",
++  "topbar.breadcrumbRoot": "founder-os",
++  "topbar.locale": "Language",
++  "palette.placeholder": "Jump anywhere — views, agents, tools…",
++  "palette.noMatches": "No matches",
++  "palette.external": "external",
++  "palette.shortcutHint": "Shortcut {key}",
++  "theme.heading": "Theme",
++  "theme.dark.name": "Terminal",
++  "theme.dark.blurb": "phosphor green on near-black",
++  "theme.light.name": "Clay",
++  "theme.light.blurb": "warm paper with clay orange",
++  "theme.midnight.name": "Midnight",
++  "theme.midnight.blurb": "deep navy, signal blue",
++  "theme.ember.name": "Ember",
++  "theme.ember.blurb": "coal dark, vault orange",
++  "theme.mono.name": "Monolith",
++  "theme.mono.blurb": "white on black, color = status only",
++  "theme.monoLight.name": "Daylight",
++  "theme.monoLight.blurb": "soft grey on white, easy on the eyes",
++  "conductor.ask": "Ask Orchestrator",
++  "conductor.openAria": "Open the Orchestrator agent panel",
++  "conductor.openTitle": "Ask the Orchestrator about this screen",
++  "conductor.dragResize": "Drag to resize",
++  "conductor.widen": "Widen panel",
++  "conductor.slideAway": "Slide panel away",
++  "conductor.seeing": "seeing: {title}",
++  "conductor.close": "Close Orchestrator",
++  "conductor.emptyLine1": "Ask about this screen — the Orchestrator sees what you see",
++  "conductor.emptyLine2": "and routes to the best-fit agent (@agent-id to force one).",
++  "conductor.routing": "routing…",
++  "conductor.placeholder": "Ask about {title}…",
++  "conductor.send": "Send",
++  "auth.brand": "FounderOS",
++  "auth.title": "Sign in",
++  "auth.description": "Authenticate with your organization's identity provider.",
++  "auth.continue": "Continue",
++  "auth.devName": "Name",
++  "auth.devEmail": "you@company.com",
++  "auth.devLogin": "Development login",
++  "auth.providerMissing": "Identity provider is not configured yet.",
++  "auth.accessPendingTitle": "Access pending",
++  "auth.accessPendingDescription": "Your identity is authenticated, but there is no active organization with product access yet. Accept an invitation from your company or ask an administrator for access.",
++  "auth.inviteMissing": "Invitation is missing or invalid.",
++  "auth.return": "Back",
++  "auth.authenticated": "Authenticated",
++  "auth.accessDenied": "Access denied",
++  "auth.sessionExpired": "Your session has expired.",
++  "invite.title": "Organization invitation",
++  "invite.description": "Confirm to add your account to the organization with the role selected by the administrator.",
++  "invite.accept": "Accept invitation",
++  "invite.accepting": "Accepting…",
++  "invite.failed": "The invitation could not be accepted.",
++  "invite.acceptedSwitchFailed": "Invitation accepted, but the organization could not be selected.",
++  "invite.unexpected": "Unexpected error."
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/es-419.json /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/es-419.json
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/es-419.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/es-419.json	2026-09-10 04:32:14.477705378 +0000
+@@ -0,0 +1,107 @@
++{
++  "common.loading": "Cargando",
++  "common.save": "Guardar",
++  "common.cancel": "Cancelar",
++  "common.close": "Cerrar",
++  "common.search": "Buscar",
++  "common.view": "Vista",
++  "common.tool": "Herramienta",
++  "common.agent": "Agente",
++  "common.connected": "Conectado",
++  "common.active": "Activo",
++  "common.error": "Error",
++  "common.success": "Éxito",
++  "common.pending": "Pendiente",
++  "common.system": "Sistema",
++  "common.organization": "Organización",
++  "nav.group.operate": "Operación",
++  "nav.group.agents": "Agentes",
++  "nav.group.intelligence": "Inteligencia",
++  "nav.group.system": "Sistema",
++  "nav.group.variants": "Variantes",
++  "nav.home": "Inicio",
++  "nav.comms": "Comunicaciones",
++  "nav.funnel": "Embudo",
++  "nav.workflows": "Flujos de trabajo",
++  "nav.social": "Redes sociales",
++  "nav.content": "Contenido",
++  "nav.finances": "Finanzas",
++  "nav.agents": "Agentes",
++  "nav.tasks": "Tareas",
++  "nav.skills": "Habilidades",
++  "nav.orgChart": "Organigrama",
++  "nav.knowledge": "Conocimiento",
++  "nav.systemHealth": "Salud del sistema",
++  "nav.integrations": "Integraciones",
++  "nav.roadmap": "Planificación",
++  "nav.analytics": "Analítica",
++  "nav.referenceModel": "Modelo de referencia",
++  "nav.personas": "Personas",
++  "sidebar.operatorMode": "Modo operador",
++  "sidebar.expand": "Expandir barra lateral",
++  "sidebar.collapse": "Contraer barra lateral",
++  "sidebar.resize": "Redimensionar barra lateral",
++  "sidebar.resetHint": "Arrastra para redimensionar · doble clic para restablecer",
++  "sidebar.systemsLive": "{up}/{total} sistemas activos",
++  "sidebar.hostMeta": "{host} · control plane · agentes reales",
++  "sidebar.loadingSystems": "—/— sistemas",
++  "sidebar.productVersion": "v3",
++  "sidebar.statusLive": "Operativo",
++  "topbar.commandPalette": "Paleta de comandos (⌘K)",
++  "topbar.askConductor": "Preguntar al Orquestador sobre esta pantalla",
++  "topbar.openConductor": "Abrir panel del Orquestador",
++  "topbar.breadcrumbRoot": "founder-os",
++  "topbar.locale": "Idioma",
++  "palette.placeholder": "Ir a cualquier lugar — vistas, agentes, herramientas…",
++  "palette.noMatches": "Sin resultados",
++  "palette.external": "externo",
++  "palette.shortcutHint": "Atajo {key}",
++  "theme.heading": "Tema",
++  "theme.dark.name": "Terminal",
++  "theme.dark.blurb": "verde fósforo sobre negro profundo",
++  "theme.light.name": "Arcilla",
++  "theme.light.blurb": "papel cálido con naranja arcilla",
++  "theme.midnight.name": "Medianoche",
++  "theme.midnight.blurb": "azul marino profundo, señal azul",
++  "theme.ember.name": "Brasa",
++  "theme.ember.blurb": "carbón oscuro, naranja bóveda",
++  "theme.mono.name": "Monolito",
++  "theme.mono.blurb": "blanco sobre negro, color solo para estado",
++  "theme.monoLight.name": "Luz del día",
++  "theme.monoLight.blurb": "gris suave sobre blanco, cómodo a la vista",
++  "conductor.ask": "Preguntar al Orquestador",
++  "conductor.openAria": "Abrir panel del agente Orquestador",
++  "conductor.openTitle": "Preguntar al Orquestador sobre esta pantalla",
++  "conductor.dragResize": "Arrastra para redimensionar",
++  "conductor.widen": "Ampliar panel",
++  "conductor.slideAway": "Ocultar panel",
++  "conductor.seeing": "viendo: {title}",
++  "conductor.close": "Cerrar Orquestador",
++  "conductor.emptyLine1": "Pregunta sobre esta pantalla — el Orquestador ve lo que tú ves",
++  "conductor.emptyLine2": "y dirige al agente más adecuado (@agent-id para forzar uno).",
++  "conductor.routing": "enrutando…",
++  "conductor.placeholder": "Preguntar sobre {title}…",
++  "conductor.send": "Enviar",
++  "auth.brand": "FounderOS",
++  "auth.title": "Iniciar sesión",
++  "auth.description": "Autentícate con el proveedor de identidad de tu organización.",
++  "auth.continue": "Continuar",
++  "auth.devName": "Nombre",
++  "auth.devEmail": "tu@empresa.com",
++  "auth.devLogin": "Inicio de sesión de desarrollo",
++  "auth.providerMissing": "El proveedor de identidad aún no está configurado.",
++  "auth.accessPendingTitle": "Acceso pendiente",
++  "auth.accessPendingDescription": "Tu identidad fue autenticada, pero todavía no hay una organización activa con acceso al producto. Acepta una invitación de tu empresa o solicita acceso a un administrador.",
++  "auth.inviteMissing": "Invitación ausente o inválida.",
++  "auth.return": "Volver",
++  "auth.authenticated": "Autenticado",
++  "auth.accessDenied": "Acceso denegado",
++  "auth.sessionExpired": "Tu sesión expiró.",
++  "invite.title": "Invitación a la organización",
++  "invite.description": "Confirma para agregar tu cuenta a la organización con el rol definido por el administrador.",
++  "invite.accept": "Aceptar invitación",
++  "invite.accepting": "Aceptando…",
++  "invite.failed": "No se pudo aceptar la invitación.",
++  "invite.acceptedSwitchFailed": "Invitación aceptada, pero no se pudo seleccionar la organización.",
++  "invite.unexpected": "Error inesperado."
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/pt-BR.json /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/pt-BR.json
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/pt-BR.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/pt-BR.json	2026-09-10 04:32:14.477315931 +0000
+@@ -0,0 +1,107 @@
++{
++  "common.loading": "Carregando",
++  "common.save": "Salvar",
++  "common.cancel": "Cancelar",
++  "common.close": "Fechar",
++  "common.search": "Buscar",
++  "common.view": "Visualização",
++  "common.tool": "Ferramenta",
++  "common.agent": "Agente",
++  "common.connected": "Conectado",
++  "common.active": "Ativo",
++  "common.error": "Erro",
++  "common.success": "Sucesso",
++  "common.pending": "Pendente",
++  "common.system": "Sistema",
++  "common.organization": "Organização",
++  "nav.group.operate": "Operação",
++  "nav.group.agents": "Agentes",
++  "nav.group.intelligence": "Inteligência",
++  "nav.group.system": "Sistema",
++  "nav.group.variants": "Variantes",
++  "nav.home": "Início",
++  "nav.comms": "Comunicações",
++  "nav.funnel": "Funil",
++  "nav.workflows": "Fluxos de trabalho",
++  "nav.social": "Redes sociais",
++  "nav.content": "Conteúdo",
++  "nav.finances": "Financeiro",
++  "nav.agents": "Agentes",
++  "nav.tasks": "Tarefas",
++  "nav.skills": "Habilidades",
++  "nav.orgChart": "Organograma",
++  "nav.knowledge": "Conhecimento",
++  "nav.systemHealth": "Saúde do sistema",
++  "nav.integrations": "Integrações",
++  "nav.roadmap": "Planejamento",
++  "nav.analytics": "Análises",
++  "nav.referenceModel": "Modelo de referência",
++  "nav.personas": "Personas",
++  "sidebar.operatorMode": "Modo operador",
++  "sidebar.expand": "Expandir barra lateral",
++  "sidebar.collapse": "Recolher barra lateral",
++  "sidebar.resize": "Redimensionar barra lateral",
++  "sidebar.resetHint": "Arraste para redimensionar · clique duas vezes para restaurar",
++  "sidebar.systemsLive": "{up}/{total} sistemas ativos",
++  "sidebar.hostMeta": "{host} · control plane · agentes reais",
++  "sidebar.loadingSystems": "—/— sistemas",
++  "sidebar.productVersion": "v3",
++  "sidebar.statusLive": "Operacional",
++  "topbar.commandPalette": "Paleta de comandos (⌘K)",
++  "topbar.askConductor": "Perguntar ao Orquestrador sobre esta tela",
++  "topbar.openConductor": "Abrir painel do Orquestrador",
++  "topbar.breadcrumbRoot": "founder-os",
++  "topbar.locale": "Idioma",
++  "palette.placeholder": "Ir para qualquer lugar — telas, agentes, ferramentas…",
++  "palette.noMatches": "Nenhum resultado",
++  "palette.external": "externo",
++  "palette.shortcutHint": "Atalho {key}",
++  "theme.heading": "Tema",
++  "theme.dark.name": "Terminal",
++  "theme.dark.blurb": "verde fósforo sobre preto profundo",
++  "theme.light.name": "Argila",
++  "theme.light.blurb": "papel quente com laranja argila",
++  "theme.midnight.name": "Meia-noite",
++  "theme.midnight.blurb": "azul-marinho profundo, sinal azul",
++  "theme.ember.name": "Brasa",
++  "theme.ember.blurb": "carvão escuro, laranja cofre",
++  "theme.mono.name": "Monólito",
++  "theme.mono.blurb": "branco sobre preto, cor apenas para status",
++  "theme.monoLight.name": "Luz do dia",
++  "theme.monoLight.blurb": "cinza suave sobre branco, confortável aos olhos",
++  "conductor.ask": "Perguntar ao Orquestrador",
++  "conductor.openAria": "Abrir painel do agente Orquestrador",
++  "conductor.openTitle": "Perguntar ao Orquestrador sobre esta tela",
++  "conductor.dragResize": "Arraste para redimensionar",
++  "conductor.widen": "Aumentar painel",
++  "conductor.slideAway": "Ocultar painel",
++  "conductor.seeing": "vendo: {title}",
++  "conductor.close": "Fechar Orquestrador",
++  "conductor.emptyLine1": "Pergunte sobre esta tela — o Orquestrador vê o que você vê",
++  "conductor.emptyLine2": "e encaminha para o agente mais adequado (@agent-id para forçar um).",
++  "conductor.routing": "encaminhando…",
++  "conductor.placeholder": "Perguntar sobre {title}…",
++  "conductor.send": "Enviar",
++  "auth.brand": "FounderOS",
++  "auth.title": "Entrar",
++  "auth.description": "Autentique-se com o provedor de identidade da sua organização.",
++  "auth.continue": "Continuar",
++  "auth.devName": "Nome",
++  "auth.devEmail": "voce@empresa.com",
++  "auth.devLogin": "Login de desenvolvimento",
++  "auth.providerMissing": "Provedor de identidade ainda não configurado.",
++  "auth.accessPendingTitle": "Acesso pendente",
++  "auth.accessPendingDescription": "Sua identidade foi autenticada, mas ainda não há uma organização ativa com acesso ao produto. Aceite um convite da sua empresa ou peça acesso a um administrador.",
++  "auth.inviteMissing": "Convite ausente ou inválido.",
++  "auth.return": "Voltar",
++  "auth.authenticated": "Autenticado",
++  "auth.accessDenied": "Acesso negado",
++  "auth.sessionExpired": "Sua sessão expirou.",
++  "invite.title": "Convite para organização",
++  "invite.description": "Confirme para adicionar sua conta à organização com a função definida pelo administrador.",
++  "invite.accept": "Aceitar convite",
++  "invite.accepting": "Aceitando…",
++  "invite.failed": "Não foi possível aceitar o convite.",
++  "invite.acceptedSwitchFailed": "Convite aceito, mas não foi possível selecionar a organização.",
++  "invite.unexpected": "Erro inesperado."
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/pt-PT.json /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/pt-PT.json
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/messages/pt-PT.json	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/messages/pt-PT.json	2026-09-10 04:32:14.477423964 +0000
+@@ -0,0 +1,107 @@
++{
++  "common.loading": "Carregando",
++  "common.save": "Guardar",
++  "common.cancel": "Cancelar",
++  "common.close": "Fechar",
++  "common.search": "Pesquisar",
++  "common.view": "Visualização",
++  "common.tool": "Ferramenta",
++  "common.agent": "Agente",
++  "common.connected": "Conectado",
++  "common.active": "Ativo",
++  "common.error": "Erro",
++  "common.success": "Sucesso",
++  "common.pending": "Pendente",
++  "common.system": "Sistema",
++  "common.organization": "Organização",
++  "nav.group.operate": "Operação",
++  "nav.group.agents": "Agentes",
++  "nav.group.intelligence": "Inteligência",
++  "nav.group.system": "Sistema",
++  "nav.group.variants": "Variantes",
++  "nav.home": "Início",
++  "nav.comms": "Comunicações",
++  "nav.funnel": "Funil",
++  "nav.workflows": "Fluxos de trabalho",
++  "nav.social": "Redes sociais",
++  "nav.content": "Conteúdo",
++  "nav.finances": "Finanças",
++  "nav.agents": "Agentes",
++  "nav.tasks": "Tarefas",
++  "nav.skills": "Habilidades",
++  "nav.orgChart": "Organograma",
++  "nav.knowledge": "Conhecimento",
++  "nav.systemHealth": "Saúde do sistema",
++  "nav.integrations": "Integrações",
++  "nav.roadmap": "Planejamento",
++  "nav.analytics": "Análises",
++  "nav.referenceModel": "Modelo de referência",
++  "nav.personas": "Personas",
++  "sidebar.operatorMode": "Modo operador",
++  "sidebar.expand": "Expandir barra lateral",
++  "sidebar.collapse": "Recolher barra lateral",
++  "sidebar.resize": "Redimensionar barra lateral",
++  "sidebar.resetHint": "Arraste para redimensionar · clique duas vezes para restaurar",
++  "sidebar.systemsLive": "{up}/{total} sistemas ativos",
++  "sidebar.hostMeta": "{host} · control plane · agentes reais",
++  "sidebar.loadingSystems": "—/— sistemas",
++  "sidebar.productVersion": "v3",
++  "sidebar.statusLive": "Operacional",
++  "topbar.commandPalette": "Paleta de comandos (⌘K)",
++  "topbar.askConductor": "Perguntar ao Orquestrador sobre este ecrã",
++  "topbar.openConductor": "Abrir painel do Orquestrador",
++  "topbar.breadcrumbRoot": "founder-os",
++  "topbar.locale": "Idioma",
++  "palette.placeholder": "Ir para qualquer lugar — ecrãs, agentes, ferramentas…",
++  "palette.noMatches": "Nenhum resultado",
++  "palette.external": "externo",
++  "palette.shortcutHint": "Atalho {key}",
++  "theme.heading": "Tema",
++  "theme.dark.name": "Terminal",
++  "theme.dark.blurb": "verde fósforo sobre preto profundo",
++  "theme.light.name": "Argila",
++  "theme.light.blurb": "papel quente com laranja argila",
++  "theme.midnight.name": "Meia-noite",
++  "theme.midnight.blurb": "azul-marinho profundo, sinal azul",
++  "theme.ember.name": "Brasa",
++  "theme.ember.blurb": "carvão escuro, laranja cofre",
++  "theme.mono.name": "Monólito",
++  "theme.mono.blurb": "branco sobre preto, cor apenas para status",
++  "theme.monoLight.name": "Luz do dia",
++  "theme.monoLight.blurb": "cinzento suave sobre branco, confortável à vista",
++  "conductor.ask": "Perguntar ao Orquestrador",
++  "conductor.openAria": "Abrir painel do agente Orquestrador",
++  "conductor.openTitle": "Perguntar ao Orquestrador sobre este ecrã",
++  "conductor.dragResize": "Arraste para redimensionar",
++  "conductor.widen": "Aumentar painel",
++  "conductor.slideAway": "Ocultar painel",
++  "conductor.seeing": "vendo: {title}",
++  "conductor.close": "Fechar Orquestrador",
++  "conductor.emptyLine1": "Pergunte sobre este ecrã — o Orquestrador vê o que vê",
++  "conductor.emptyLine2": "e encaminha para o agente mais adequado (@agent-id para forçar um).",
++  "conductor.routing": "encaminhando…",
++  "conductor.placeholder": "Perguntar sobre {title}…",
++  "conductor.send": "Enviar",
++  "auth.brand": "FounderOS",
++  "auth.title": "Entrar",
++  "auth.description": "Autentique-se com o fornecedor de identidade da sua organização.",
++  "auth.continue": "Continuar",
++  "auth.devName": "Nome",
++  "auth.devEmail": "voce@empresa.com",
++  "auth.devLogin": "Login de desenvolvimento",
++  "auth.providerMissing": "Fornecedor de identidade ainda não configurado.",
++  "auth.accessPendingTitle": "Acesso pendente",
++  "auth.accessPendingDescription": "Sua identidade foi autenticada, mas ainda não há uma organização ativa com acesso ao produto. Aceite um convite da sua empresa ou peça acesso a um administrador.",
++  "auth.inviteMissing": "Convite ausente ou inválido.",
++  "auth.return": "Voltar",
++  "auth.authenticated": "Autenticado",
++  "auth.accessDenied": "Acesso negado",
++  "auth.sessionExpired": "Sua sessão expirou.",
++  "invite.title": "Convite para organização",
++  "invite.description": "Confirme para adicionar a sua conta à organização com a função definida pelo administrador.",
++  "invite.accept": "Aceitar convite",
++  "invite.accepting": "Aceitando…",
++  "invite.failed": "Não foi possível aceitar o convite.",
++  "invite.acceptedSwitchFailed": "Convite aceite, mas não foi possível selecionar a organização.",
++  "invite.unexpected": "Erro inesperado."
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/server.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/server.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/i18n/server.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/i18n/server.ts	2026-09-10 04:32:55.809181138 +0000
+@@ -0,0 +1,28 @@
++import { headers } from 'next/headers';
++import {
++  DEFAULT_REGIONAL_SETTINGS,
++  matchSupportedLocale,
++  sanitizeCountry,
++  sanitizeCurrency,
++  sanitizeFirstDayOfWeek,
++  type RegionalSettings,
++} from './locales';
++
++export const INTERNAL_LOCALE_HEADERS = {
++  locale: 'x-founder-locale',
++  country: 'x-founder-country',
++  currency: 'x-founder-currency',
++  timezone: 'x-founder-timezone',
++  firstDayOfWeek: 'x-founder-first-day-of-week',
++} as const;
++
++export async function getRequestRegionalSettings(): Promise<RegionalSettings> {
++  const requestHeaders = await headers();
++  return {
++    locale: matchSupportedLocale(requestHeaders.get(INTERNAL_LOCALE_HEADERS.locale)) ?? DEFAULT_REGIONAL_SETTINGS.locale,
++    country: sanitizeCountry(requestHeaders.get(INTERNAL_LOCALE_HEADERS.country)),
++    currency: sanitizeCurrency(requestHeaders.get(INTERNAL_LOCALE_HEADERS.currency)),
++    timezone: requestHeaders.get(INTERNAL_LOCALE_HEADERS.timezone)?.trim() || DEFAULT_REGIONAL_SETTINGS.timezone,
++    firstDayOfWeek: sanitizeFirstDayOfWeek(requestHeaders.get(INTERNAL_LOCALE_HEADERS.firstDayOfWeek)),
++  };
++}
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/nav.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/nav.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/nav.ts	2026-08-17 18:04:42.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/nav.ts	2026-09-10 04:34:34.014228331 +0000
+@@ -23,25 +23,26 @@
+   LayoutGrid,
+   Layers,
+ } from 'lucide-react';
++import type { MessageKey } from '@/lib/i18n/catalog';
+ 
+-export type NavItem = { href: string; label: string; icon: typeof Home };
++export type NavItem = { href: string; labelKey: MessageKey; icon: typeof Home };
+ 
+ export const NAV_OPERATE: NavItem[] = [
+-  { href: '/', label: 'Home', icon: Home },
+-  { href: '/comms', label: 'Comms', icon: MessageSquare },
+-  { href: '/funnel', label: 'Funnel', icon: Filter },
+-  { href: '/workflows', label: 'Workflows', icon: Workflow },
+-  { href: '/social', label: 'Social', icon: Share2 },
+-  { href: '/content', label: 'Content', icon: Clapperboard },
+-  { href: '/finances', label: 'Finances', icon: Wallet },
++  { href: '/', labelKey: 'nav.home', icon: Home },
++  { href: '/comms', labelKey: 'nav.comms', icon: MessageSquare },
++  { href: '/funnel', labelKey: 'nav.funnel', icon: Filter },
++  { href: '/workflows', labelKey: 'nav.workflows', icon: Workflow },
++  { href: '/social', labelKey: 'nav.social', icon: Share2 },
++  { href: '/content', labelKey: 'nav.content', icon: Clapperboard },
++  { href: '/finances', labelKey: 'nav.finances', icon: Wallet },
+ ];
+ 
+ // The agent workforce: the roster and the org chart that maps how they report.
+ export const NAV_AGENTS: NavItem[] = [
+-  { href: '/agents', label: 'Agents', icon: Users },
+-  { href: '/tasks', label: 'Tasks', icon: ListChecks },
+-  { href: '/skills', label: 'Skills', icon: Sparkles },
+-  { href: '/org', label: 'Org Chart', icon: Network },
++  { href: '/agents', labelKey: 'nav.agents', icon: Users },
++  { href: '/tasks', labelKey: 'nav.tasks', icon: ListChecks },
++  { href: '/skills', labelKey: 'nav.skills', icon: Sparkles },
++  { href: '/org', labelKey: 'nav.orgChart', icon: Network },
+ ];
+ 
+ // The knowledge layer the agents draw on.
+@@ -49,19 +50,19 @@
+ // Doctor holds the engine's health readouts (pillar health, doctor, storage
+ // layers, pipeline, query path) so the graph tab stays a single view.
+ export const NAV_INTELLIGENCE: NavItem[] = [
+-  { href: '/brain', label: 'G-Brain', icon: Brain },
+-  { href: '/doctor', label: 'Doctor', icon: Stethoscope },
++  { href: '/brain', labelKey: 'nav.knowledge', icon: Brain },
++  { href: '/doctor', labelKey: 'nav.systemHealth', icon: Stethoscope },
+ ];
+ 
+ export const NAV_SYSTEM: NavItem[] = [
+-  { href: '/integrations', label: 'Connections', icon: Plug },
+-  { href: '/roadmap', label: 'Roadmap', icon: Map },
+-  { href: '/analytics', label: 'Analytics', icon: BarChart3 },
+-  { href: '/reference', label: 'Reference Model', icon: LayoutGrid },
++  { href: '/integrations', labelKey: 'nav.integrations', icon: Plug },
++  { href: '/roadmap', labelKey: 'nav.roadmap', icon: Map },
++  { href: '/analytics', labelKey: 'nav.analytics', icon: BarChart3 },
++  { href: '/reference', labelKey: 'nav.referenceModel', icon: LayoutGrid },
+ ];
+ 
+ // At the very bottom: persona templates that can run variants of this platform.
+-export const NAV_LIBRARY: NavItem[] = [{ href: '/personas', label: 'Personas', icon: Layers }];
++export const NAV_LIBRARY: NavItem[] = [{ href: '/personas', labelKey: 'nav.personas', icon: Layers }];
+ 
+ /** Visible top-to-bottom order across all groups. */
+ export const NAV_ORDER: string[] = [
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/screen-context.ts /mnt/data/_phase7/FounderOS-DEMO-main/lib/screen-context.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/lib/screen-context.ts	2026-08-17 18:04:42.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/lib/screen-context.ts	2026-09-10 04:36:23.335136106 +0000
+@@ -11,13 +11,16 @@
+ import { funnelSummary, journeyMeta, splitFunnelJourneys, FUNNEL_STAGES } from '@/lib/funnel';
+ import { attioFunnelJourneys } from '@/lib/funnel-live';
+ import { ghlFunnelJourneys } from '@/lib/funnel-ghl';
++import { translate } from '@/lib/i18n/catalog';
++import { formatNumber } from '@/lib/i18n/format';
++import type { SupportedLocale } from '@/lib/i18n/locales';
+ 
+ const ALL_NAV = [...NAV_OPERATE, ...NAV_AGENTS, ...NAV_INTELLIGENCE, ...NAV_SYSTEM, ...NAV_LIBRARY];
+ 
+-export function screenTitleFor(path: string): string {
++export function screenTitleFor(path: string, locale: SupportedLocale = 'pt-BR'): string {
+   const clean = path.split('?')[0] || '/';
+   const hit = ALL_NAV.find((n) => (n.href === '/' ? clean === '/' : clean === n.href || clean.startsWith(`${n.href}/`)));
+-  return hit?.label ?? clean;
++  return hit ? translate(locale, hit.labelKey) : clean;
+ }
+ 
+ export type FunnelContextInput = {
+@@ -32,9 +35,9 @@
+ };
+ 
+ /** Pure formatter — what the Conductor reads about the funnel screen. */
+-export function describeFunnelContext(d: FunnelContextInput): string {
++export function describeFunnelContext(d: FunnelContextInput, locale: SupportedLocale = 'pt-BR'): string {
+   return [
+-    `Funnel: ${d.clients} active leads across ${d.sources}; ${d.converted} converted ($${Math.round(d.revenueUsd).toLocaleString('en-US')}); ${d.archived} archived (>90d quiet).`,
++    `Funnel: ${formatNumber(d.clients, locale)} active leads across ${d.sources}; ${formatNumber(d.converted, locale)} converted ($${formatNumber(Math.round(d.revenueUsd), locale)}); ${formatNumber(d.archived, locale)} archived (>90d quiet).`,
+     `Current stage counts — ${d.stageCounts.map(([label, n]) => `${label}: ${n}`).join(' · ')}.`,
+     `${d.decaying} fading toward the 90-day archive (quiet >21d).`,
+     d.reddest.length > 0
+@@ -45,7 +48,7 @@
+     .join('\n');
+ }
+ 
+-async function funnelContext(): Promise<string> {
++async function funnelContext(locale: SupportedLocale): Promise<string> {
+   const now = new Date();
+   const [attioLive, ghlLive] = await Promise.all([attioFunnelJourneys(now), ghlFunnelJourneys(now)]);
+   const live = [...(attioLive?.journeys ?? []), ...(ghlLive?.journeys ?? [])];
+@@ -82,16 +85,16 @@
+     sources,
+     decaying,
+     reddest,
+-  });
++  }, locale);
+ }
+ 
+ /** Route-aware context. Cheap everywhere except the funnel (the flagship). */
+-export async function screenContextFor(path: string): Promise<{ title: string; context: string }> {
+-  const title = screenTitleFor(path);
++export async function screenContextFor(path: string, locale: SupportedLocale = 'pt-BR'): Promise<{ title: string; context: string }> {
++  const title = screenTitleFor(path, locale);
+   const clean = path.split('?')[0] || '/';
+   try {
+     if (clean.startsWith('/funnel')) {
+-      return { title, context: await funnelContext() };
++      return { title, context: await funnelContext(locale) };
+     }
+     const db = getDb();
+     if (clean === '/' || clean.startsWith('/agents') || clean.startsWith('/org')) {
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/package.json /mnt/data/_phase7/FounderOS-DEMO-main/package.json
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/package.json	2026-09-10 01:13:31.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/package.json	2026-09-10 04:45:32.551357823 +0000
+@@ -17,7 +17,8 @@
+     "db:bootstrap": "tsx scripts/bootstrap-control-plane.ts",
+     "db:verify:live": "tsx scripts/verify-control-plane-live.ts",
+     "db:rbac:verify": "node scripts/verify-rbac.mjs",
+-    "db:rbac:verify:live": "tsx scripts/verify-rbac-live.ts"
++    "db:rbac:verify:live": "tsx scripts/verify-rbac-live.ts",
++    "i18n:verify": "node scripts/verify-i18n.mjs"
+   },
+   "dependencies": {
+     "@notionhq/client": "^5.22.0",
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/proxy.ts /mnt/data/_phase7/FounderOS-DEMO-main/proxy.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/proxy.ts	2026-09-10 01:22:07.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/proxy.ts	2026-09-10 04:34:15.554240066 +0000
+@@ -3,6 +3,8 @@
+ import { SESSION_COOKIE } from '@/lib/control-plane/session-token';
+ import { resolveUserSession } from '@/lib/control-plane/sessions';
+ import { isPublicAuthPath, requiredApiPermission } from '@/lib/control-plane/api-policy';
++import { DEFAULT_REGIONAL_SETTINGS, LOCALE_COOKIE, negotiateLocale, type RegionalSettings } from '@/lib/i18n/locales';
++import { INTERNAL_LOCALE_HEADERS } from '@/lib/i18n/server';
+ 
+ function requestHeaders(req: NextRequest) {
+   const headers = new Headers(req.headers);
+@@ -13,6 +15,25 @@
+   return headers;
+ }
+ 
++function installRegionalHeaders(
++  headers: Headers,
++  req: NextRequest,
++  regional: RegionalSettings = DEFAULT_REGIONAL_SETTINGS,
++) {
++  // The locale cookie is a presentation preference, never an auth signal.
++  // It wins immediately; persistent user/org preference remains the fallback.
++  const locale = negotiateLocale({
++    cookie: req.cookies.get(LOCALE_COOKIE)?.value,
++    preferred: regional.locale,
++    acceptLanguage: req.headers.get('accept-language'),
++  });
++  headers.set(INTERNAL_LOCALE_HEADERS.locale, locale);
++  headers.set(INTERNAL_LOCALE_HEADERS.country, regional.country);
++  headers.set(INTERNAL_LOCALE_HEADERS.currency, regional.currency);
++  headers.set(INTERNAL_LOCALE_HEADERS.timezone, regional.timezone);
++  headers.set(INTERNAL_LOCALE_HEADERS.firstDayOfWeek, String(regional.firstDayOfWeek));
++}
++
+ /**
+  * Network boundary. In CONTROL_PLANE_AUTH_MODE=required it resolves the
+  * opaque session against PostgreSQL before protected requests pass. API paths
+@@ -25,6 +46,7 @@
+ export async function proxy(req: NextRequest) {
+   const authMode = process.env.CONTROL_PLANE_AUTH_MODE ?? 'disabled';
+   const headers = requestHeaders(req);
++  installRegionalHeaders(headers, req);
+   const pathname = req.nextUrl.pathname;
+ 
+   if (authMode === 'required' && !isPublicAuthPath(pathname)) {
+@@ -43,6 +65,8 @@
+       return res;
+     }
+ 
++    installRegionalHeaders(headers, req, session.regional);
++
+     if (!pathname.startsWith('/api/') && pathname !== '/accept-invite' && !session.permissions.has('app.read')) {
+       return NextResponse.redirect(new URL('/access-pending', req.url));
+     }
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/scripts/verify-i18n.mjs /mnt/data/_phase7/FounderOS-DEMO-main/scripts/verify-i18n.mjs
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/scripts/verify-i18n.mjs	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/scripts/verify-i18n.mjs	2026-09-10 04:47:42.116129297 +0000
+@@ -0,0 +1,126 @@
++import fs from 'node:fs';
++import path from 'node:path';
++
++const ROOT = process.cwd();
++const locales = ['pt-BR', 'pt-PT', 'es-419', 'en-US'];
++const messagesDir = path.join(ROOT, 'lib', 'i18n', 'messages');
++
++function fail(message) {
++  console.error(`i18n:verify FAIL — ${message}`);
++  process.exit(1);
++}
++
++function read(rel) {
++  return fs.readFileSync(path.join(ROOT, rel), 'utf8');
++}
++
++function walk(dir, out = []) {
++  if (!fs.existsSync(dir)) return out;
++  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
++    const full = path.join(dir, entry.name);
++    if (entry.isDirectory()) walk(full, out);
++    else out.push(full);
++  }
++  return out;
++}
++
++const catalogs = Object.fromEntries(
++  locales.map((locale) => {
++    const file = path.join(messagesDir, `${locale}.json`);
++    if (!fs.existsSync(file)) fail(`missing catalog ${locale}`);
++    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
++    return [locale, parsed];
++  }),
++);
++
++const baseKeys = Object.keys(catalogs['pt-BR']).sort();
++if (baseKeys.length < 105) fail(`catalog baseline regressed: ${baseKeys.length} keys (expected at least 105)`);
++for (const locale of locales) {
++  const keys = Object.keys(catalogs[locale]).sort();
++  if (keys.length !== baseKeys.length) fail(`${locale} has ${keys.length} keys; pt-BR has ${baseKeys.length}`);
++  const missing = baseKeys.filter((key) => !Object.hasOwn(catalogs[locale], key));
++  const extra = keys.filter((key) => !Object.hasOwn(catalogs['pt-BR'], key));
++  if (missing.length || extra.length) fail(`${locale} key mismatch; missing=${missing.join(',')} extra=${extra.join(',')}`);
++  for (const key of baseKeys) {
++    if (typeof catalogs[locale][key] !== 'string' || !catalogs[locale][key].trim()) {
++      fail(`${locale}:${key} must be a non-empty string`);
++    }
++  }
++}
++
++// ICU-style placeholders must stay identical across translations.
++const params = (value) => [...value.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((m) => m[1]).sort().join(',');
++for (const key of baseKeys) {
++  const expected = params(catalogs['pt-BR'][key]);
++  for (const locale of locales.slice(1)) {
++    const actual = params(catalogs[locale][key]);
++    if (actual !== expected) fail(`placeholder mismatch ${key}: pt-BR=[${expected}] ${locale}=[${actual}]`);
++  }
++}
++
++const localesSource = read('lib/i18n/locales.ts');
++for (const locale of locales) {
++  if (!localesSource.includes(`'${locale}'`)) fail(`SUPPORTED_LOCALES missing ${locale}`);
++}
++for (const country of ['BR', 'PT', 'MX', 'CO', 'AR', 'CL', 'PE', 'US']) {
++  if (!localesSource.includes(`${country}: { country: '${country}'`)) fail(`launch region preset missing ${country}`);
++}
++if (!localesSource.includes('sanitizeTimezone')) fail('timezone sanitizer missing');
++
++const migration = read('db/control-plane/0003_i18n_preferences.sql');
++for (const token of ['control_plane.user_preferences', 'ENABLE ROW LEVEL SECURITY', 'current_actor_id()', ...locales]) {
++  if (!migration.includes(token)) fail(`migration contract missing ${token}`);
++}
++
++const proxy = read('proxy.ts');
++for (const token of ['x-founder-locale', 'x-founder-country', 'x-founder-currency', 'x-founder-timezone', 'x-founder-first-day-of-week']) {
++  // Header values are centralized in server.ts; proxy must import and use the map.
++  const headerSource = read('lib/i18n/server.ts');
++  if (!headerSource.includes(token)) fail(`regional header missing ${token}`);
++}
++if (!proxy.includes('installRegionalHeaders') || !proxy.includes('LOCALE_COOKIE')) fail('proxy locale boundary missing');
++
++const layout = read('app/layout.tsx');
++if (!layout.includes('<I18nProvider regional={regional}>')) fail('RootLayout missing I18nProvider');
++if (!layout.includes('<html lang={regional.locale}')) fail('RootLayout missing dynamic html lang');
++
++const apiPolicy = read('lib/control-plane/api-policy.ts');
++if (!apiPolicy.includes("path === '/api/control-plane/me/preferences')")) {
++  fail('personal preferences endpoint is still trapped behind coarse app.write/app.read policy');
++}
++
++const formatCall = /\.toLocale(?:String|DateString|TimeString)\(/;
++const intlCall = /new\s+Intl\.(?:NumberFormat|DateTimeFormat)\(/;
++const offenders = [];
++for (const root of ['app', 'components', 'lib']) {
++  for (const file of walk(path.join(ROOT, root))) {
++    if (!/\.(?:ts|tsx|js|jsx)$/.test(file)) continue;
++    if (file.includes(`${path.sep}lib${path.sep}i18n${path.sep}`)) continue;
++    const text = fs.readFileSync(file, 'utf8');
++    if (formatCall.test(text) || intlCall.test(text)) offenders.push(path.relative(ROOT, file));
++  }
++}
++if (offenders.length) fail(`formatter bypass(es) outside lib/i18n: ${offenders.join(', ')}`);
++
++// Pure contract cases mirror the launch matching policy and catch accidental
++// changes to the intended LATAM/Portuguese fallback behavior in CI.
++function match(tag) {
++  if (!tag) return null;
++  const normalized = tag.trim().replace('_', '-');
++  if (locales.includes(normalized)) return normalized;
++  const lower = normalized.toLowerCase();
++  if (lower === 'pt-pt' || lower.startsWith('pt-pt-')) return 'pt-PT';
++  if (lower === 'pt' || lower.startsWith('pt-')) return 'pt-BR';
++  if (lower === 'es' || lower.startsWith('es-')) return 'es-419';
++  if (lower === 'en' || lower.startsWith('en-')) return 'en-US';
++  return null;
++}
++const cases = new Map([
++  ['es-MX', 'es-419'], ['es-CO', 'es-419'], ['es-AR', 'es-419'],
++  ['pt-PT', 'pt-PT'], ['pt-AO', 'pt-BR'], ['en-GB', 'en-US'], ['fr-FR', null],
++]);
++for (const [input, expected] of cases) {
++  if (match(input) !== expected) fail(`locale match contract ${input} -> ${match(input)}; expected ${expected}`);
++}
++
++console.log(`i18n:verify PASS — ${locales.length} locales · ${baseKeys.length} keys/catalog · placeholder parity · regional/RLS boundary · 0 formatter bypasses`);
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/api-policy.test.ts /mnt/data/_phase7/FounderOS-DEMO-main/tests/api-policy.test.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/api-policy.test.ts	2026-09-10 01:18:12.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/tests/api-policy.test.ts	2026-09-10 04:48:46.410681798 +0000
+@@ -5,12 +5,18 @@
+   test('login and identity exchange stay reachable before a session exists', () => {
+     expect(isPublicAuthPath('/login')).toBe(true);
+     expect(isPublicAuthPath('/api/auth/exchange')).toBe(true);
++    expect(isPublicAuthPath('/api/i18n/locale')).toBe(true);
+     expect(isPublicAuthPath('/api/agents')).toBe(false);
+   });
+   test('legacy reads/writes have safe defaults', () => {
+     expect(requiredApiPermission({ pathname: '/api/metrics', method: 'GET' })).toBe('app.read');
+     expect(requiredApiPermission({ pathname: '/api/social/posts', method: 'POST' })).toBe('app.write');
+   });
++
++  test('personal presentation preferences rely on authenticated self-RLS, not app.write', () => {
++    expect(requiredApiPermission({ pathname: '/api/control-plane/me/preferences', method: 'GET' })).toBeNull();
++    expect(requiredApiPermission({ pathname: '/api/control-plane/me/preferences', method: 'PATCH' })).toBeNull();
++  });
+   test('high-impact actions receive stricter permissions', () => {
+     expect(requiredApiPermission({ pathname: '/api/agents/analyst/run', method: 'POST' })).toBe('agents.run');
+     expect(requiredApiPermission({ pathname: '/api/connections/connect', method: 'POST' })).toBe('integrations.manage');
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/control-plane-types.test.ts /mnt/data/_phase7/FounderOS-DEMO-main/tests/control-plane-types.test.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/control-plane-types.test.ts	2026-09-10 00:51:28.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/tests/control-plane-types.test.ts	2026-09-10 04:48:46.410735259 +0000
+@@ -31,6 +31,19 @@
+       }),
+     ).toMatchObject({ locale: 'en-US', currency: 'USD' });
+   });
++
++  test('rejects invalid IANA timezone identifiers', () => {
++    expect(() =>
++      RegionPreferencesSchema.parse({
++        locale: 'en-US',
++        country: 'BR',
++        currency: 'BRL',
++        timezone: 'not/a-zone',
++        firstDayOfWeek: 1,
++      }),
++    ).toThrow();
++  });
++
+ });
+ 
+ describe('Control Plane bootstrap input', () => {
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/i18n-catalog.test.ts /mnt/data/_phase7/FounderOS-DEMO-main/tests/i18n-catalog.test.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/i18n-catalog.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/tests/i18n-catalog.test.ts	2026-09-10 04:45:32.528683064 +0000
+@@ -0,0 +1,18 @@
++import { describe, expect, it } from 'vitest';
++import { getCatalog, translate } from '@/lib/i18n/catalog';
++import { SUPPORTED_LOCALES } from '@/lib/i18n/locales';
++
++describe('translation catalog', () => {
++  it('keeps identical keys across launch locales', () => {
++    const baseline = Object.keys(getCatalog('pt-BR')).sort();
++    for (const locale of SUPPORTED_LOCALES) {
++      expect(Object.keys(getCatalog(locale)).sort()).toEqual(baseline);
++    }
++  });
++
++  it('interpolates named parameters without changing the key contract', () => {
++    expect(translate('pt-BR', 'sidebar.systemsLive', { up: 4, total: 5 })).toContain('4/5');
++    expect(translate('es-419', 'sidebar.systemsLive', { up: 4, total: 5 })).toContain('4/5');
++    expect(translate('en-US', 'sidebar.systemsLive', { up: 4, total: 5 })).toContain('4/5');
++  });
++});
+diff -ruN '--exclude=.git' '--exclude=node_modules' '--exclude=.next' /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/i18n-locales.test.ts /mnt/data/_phase7/FounderOS-DEMO-main/tests/i18n-locales.test.ts
+--- /mnt/data/_phase6_base/FounderOS-DEMO-main/tests/i18n-locales.test.ts	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/_phase7/FounderOS-DEMO-main/tests/i18n-locales.test.ts	2026-09-10 04:45:32.527357228 +0000
+@@ -0,0 +1,40 @@
++import { describe, expect, it } from 'vitest';
++import {
++  DEFAULT_REGIONAL_SETTINGS,
++  REGION_PRESETS,
++  matchSupportedLocale,
++  negotiateLocale,
++  sanitizeTimezone,
++} from '@/lib/i18n/locales';
++
++describe('global locale contract', () => {
++  it('collapses country-specific Spanish into the LATAM master catalog', () => {
++    expect(matchSupportedLocale('es-MX')).toBe('es-419');
++    expect(matchSupportedLocale('es-CO')).toBe('es-419');
++    expect(matchSupportedLocale('es-AR')).toBe('es-419');
++  });
++
++  it('keeps Portugal distinct while generic Portuguese falls back to Brazil', () => {
++    expect(matchSupportedLocale('pt-PT')).toBe('pt-PT');
++    expect(matchSupportedLocale('pt')).toBe('pt-BR');
++    expect(matchSupportedLocale('pt-AO')).toBe('pt-BR');
++  });
++
++  it('respects cookie, then preferred setting, then weighted browser language', () => {
++    expect(negotiateLocale({ cookie: 'en-US', preferred: 'pt-BR', acceptLanguage: 'es-MX' })).toBe('en-US');
++    expect(negotiateLocale({ preferred: 'pt-PT', acceptLanguage: 'es-MX' })).toBe('pt-PT');
++    expect(negotiateLocale({ acceptLanguage: 'en-GB;q=0.4, es-MX;q=0.9' })).toBe('es-419');
++  });
++
++  it('ships launch presets without coupling UI language to geography', () => {
++    expect(REGION_PRESETS.BR.currency).toBe('BRL');
++    expect(REGION_PRESETS.MX.locale).toBe('es-419');
++    expect(REGION_PRESETS.PT.locale).toBe('pt-PT');
++    expect(REGION_PRESETS.US.currency).toBe('USD');
++  });
++
++  it('rejects invalid IANA zones through the sanitizer', () => {
++    expect(sanitizeTimezone('America/Sao_Paulo')).toBe('America/Sao_Paulo');
++    expect(sanitizeTimezone('not/a-zone')).toBe(DEFAULT_REGIONAL_SETTINGS.timezone);
++  });
++});
