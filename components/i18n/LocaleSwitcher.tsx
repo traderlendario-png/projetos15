@@ -20,12 +20,6 @@ export function LocaleSwitcher({ compact = true }: { compact?: boolean }) {
       });
       if (!response.ok) throw new Error('locale_update_failed');
 
-      // Persist for authenticated users when the Control Plane is available.
-      await fetch('/api/control-plane/me/preferences', {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ locale: next }),
-      }).catch(() => null);
       window.location.reload();
     } finally {
       setWorking(false);
