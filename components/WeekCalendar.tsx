@@ -4,10 +4,6 @@ import { Video } from 'lucide-react';
 import type { CalEvent } from '@/lib/connectors/gcal';
 import { assignLanes, hourBounds, type Interval } from '@/lib/calendar-layout';
 import { useI18n } from '@/components/i18n/I18nProvider';
-import { formatDate } from '@/lib/i18n/format';
-import { DEFAULT_LOCALE, DEFAULT_REGIONAL_SETTINGS } from '@/lib/i18n/locales';
-
-function fmtTime(iso: string): string { return formatDate(iso, { locale: DEFAULT_LOCALE, timezone: DEFAULT_REGIONAL_SETTINGS.timezone }, { hour: 'numeric', minute: '2-digit' }); }
 
 const HOUR_PX = 46;
 const GUTTER = 50;
@@ -35,7 +31,6 @@ type Placed = { ev: CalEvent; startMin: number; endMin: number };
     click. Times render in the machine's local timezone. */
 export function WeekCalendar({ events, accounts, nowISO }: { events: CalEvent[]; accounts: Account[]; nowISO: string }) {
   const { date } = useI18n();
-  const fmtTime = (iso: string) => date(iso, { hour: 'numeric', minute: '2-digit' });
   const now = new Date(nowISO);
   const base = localMidnight(now);
 
@@ -174,6 +169,8 @@ function AllDayChip({ ev }: { ev: CalEvent }) {
 }
 
 function EventBlock({ placed, lane, loHour }: { placed: Placed; lane: { lane: number; lanes: number }; loHour: number }) {
+  const { date } = useI18n();
+  const fmtTime = (iso: string) => date(iso, { hour: 'numeric', minute: '2-digit' });
   const { ev, startMin, endMin } = placed;
   const top = (startMin / 60 - loHour) * HOUR_PX;
   const height = Math.max(22, ((endMin - startMin) / 60) * HOUR_PX - 3);
