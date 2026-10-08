@@ -75,13 +75,13 @@ Data-base: 2026-09-09
 - [x] 2.1d-a Migrar fonte Next 15 → Next 16.3.4 + `middleware` → `proxy`
 - [x] 2.1d-b Atualizar Node >=20.9, AGENTS version-aware e lockfile Next 16; `package-lock-only` + `npm ci --dry-run` offline PASS
 - [x] 2.1d-c Scan estático Next 16: 326/326 TS/TSX, sem APIs removidas detectadas + smoke do access gate PASS
-- [ ] 2.1d-d Gate runtime Next 16: `npm ci` + Vitest + typecheck + production build em runner com registry
+- [x] 2.1d-d Gate runtime Next 16 no GitHub Actions canônico: `npm ci` + Vitest + typecheck + production build PASS no commit `040efdd6…`
 - [x] 2.2a Preparar React 18 → React/ReactDOM 19.2.8 + tipos React 19 no candidato
-- [ ] 2.2b Confirmar React 19 por Vitest/typecheck/build no gate runtime Next 16 (2.1d-d)
+- [x] 2.2b Confirmar React 19 por Vitest/typecheck/build no gate runtime Next 16 (2.1d-d)
 - [x] 2.3a Migrar fonte/configuração Tailwind 3 → 4.3.3 (CSS-first `@theme`, PostCSS dedicado, utilitários renomeados)
 - [x] 2.3b Regenerar/prunar lockfile Tailwind 4 offline + `npm ci --dry-run --offline` PASS
 - [x] 2.3c Scan estático Tailwind 4: 325 TS/TSX, 0 erros sintáticos; CSS parse 0 erros; removidos/deprecated scan limpo
-- [ ] 2.3d Gate runtime/visual Tailwind 4: `npm ci` + Vitest + typecheck + build + visual regression dos 6 temas em runner com registry
+- [ ] 2.3d Gate runtime/visual Tailwind 4: runtime `npm ci` + Vitest + typecheck + build PASS no GitHub Actions; visual regression dos 6 temas ainda pendente
 - [x] 2.4a Introduzir PostgreSQL como banco canônico do SaaS Control Plane, separado do legado SQLite e da persistência do OptimalEngine
 - [x] 2.4b Criar foundation `User → Organization → Membership → WorkspaceBinding → RegionalPreferences → Plans/Subscriptions`
 - [x] 2.5a Introduzir Drizzle ORM 0.45.2 + postgres.js 3.4.9 com versões pinadas
@@ -105,6 +105,11 @@ Data-base: 2026-09-09
 - [x] 3.5a Persistir preferências individuais em PostgreSQL com self-only RLS + locale cookie não-sensível para troca imediata
 - [x] 3.5b Internacionalizar shell, navegação, command palette, temas, Conductor, login/convite e formatadores críticos
 - [x] 3.5b-verify Criar `i18n:verify` + testes de locale/catalog; 4 catálogos com 105 chaves e 0 formatter bypasses
+- [x] 3.5b-runtime Preparar hardening 7B: locale switch em request único sem 401 esperado, persistência PostgreSQL best-effort autenticada, analytics/calendário no locale ativo, `withControlPlaneScope<T>` sem `any` e `turbopack.root` explícito
+- [x] 3.5b-coverage Criar inventário AST reproduzível de copy de UI; baseline 7B = 64/745 callsites catalog-backed (8,6%) e 681 candidatos hardcoded em `app/` + `components/`
+- [x] 3.5b-coverage-decision Registrar decisão explícita: não traduzir a UI legada antes do Axiom; preservar o baseline e exigir que cada superfície Axiom nova nasça em `pt-BR`, `pt-PT`, `es-419` e `en-US`
+- [x] 3.5b-live-gate Preparar prova real login → locale → PostgreSQL: dev-login, cookie opaco, `user_preferences`, reidratação de sessão; adicionar job PostgreSQL 18 com migrations + RLS/RBAC/i18n live probes
+- [ ] 3.5b-runtime-ci Promover a 7B após CI canônico (`npm ci` + 115 arquivos / 968 testes esperados + i18n verify/coverage + typecheck + build + PostgreSQL live probes) e smoke browser dos quatro locales
 - [ ] 3.5c Migrar copy das telas legadas para os catálogos durante o redesign Axiom (evita traduzir duas vezes UI que será substituída)
 - [ ] 3.5d Normalizar/validar telefone E.164 nos domínios CRM/Inbox durante a reconstrução dos módulos
 - [ ] 4.1 Criar Axiom Design System
@@ -182,8 +187,12 @@ Data-base: 2026-09-09
 - [ ] 22.2 White-label/enterprise deployment se comercialmente necessário
 
 ## Próxima ação imediata
-A Fase 7 está fechada como candidato de engenharia: `pt-BR`, `pt-PT`, `es-419` e `en-US`; 105 chaves por catálogo com paridade de placeholders; presets BR/PT/MX/CO/AR/CL/PE/US; timezone IANA validado; preferências humanas PostgreSQL com self-only RLS; locale cookie não-sensível; shell/auth/navegação/Conductor localizados; `proxy.ts` como trust boundary regional; e todos os formatters diretos em `app/components/lib` foram centralizados no core i18n.
+A `main` canônica `traderlendario-png/projetos15` no commit `040efdd6facbec2a92b56f0a694425e44e2e081a` já passou por GitHub Actions real: `npm ci`, **113 arquivos de teste / 961 testes**, `tsc --noEmit` e `next build` Next.js 16.3.4 concluíram com sucesso. Isso fecha os gates runtime de Next 16 e React 19 que antes estavam pendentes; o gate Tailwind 4 continua aberto apenas pela regressão visual dos seis temas.
 
-Gates locais da Fase 7: `i18n:verify` PASS, parser **384 TS/TSX / 0 erros sintáticos**, `db:verify` PASS, `db:rbac:verify` PASS e `npm ci --dry-run --offline --ignore-scripts` PASS com 294 pacotes. O `npm ci --offline` real continua bloqueado pelo tarball `zod-3.25.76.tgz` ausente do cache; PostgreSQL vivo e Vitest/typecheck/build seguem como gates obrigatórios de promoção. `next-intl` 4.x permanece como adapter futuro quando houver registry.
+A Fase 7B foi ampliada para substituir os hotfixes frágeis vistos na `main`: o `LocaleSwitcher` deixa de fazer um segundo PATCH autenticado e o endpoint público `/api/i18n/locale` passa a persistir no Control Plane somente quando existe sessão; `HomeSocialGraph` e `WeekCalendar` deixam de cair em `DEFAULT_LOCALE`; o escopo PostgreSQL preserva `T` sem `as any`; e o Turbopack recebe raiz absoluta baseada em `next.config.mjs`. Além dos contratos estáticos, há agora teste de rota e um live probe que reproduz dev-login → cookie de sessão → troca de locale → `control_plane.user_preferences` → sessão reidratada.
 
-**Próximo patch isolado:** Fase 8 — Axiom Design System Premium + reconstrução do application shell, com cada nova superfície entregue simultaneamente nos quatro idiomas.
+O inventário AST de internacionalização está finalmente medido: **64/745 callsites elegíveis catalog-backed (8,6%)**, com **681 candidatos hardcoded**. Nas dez rotas legadas observadas no runtime (`/brain`, `/comms`, `/finances`, `/funnel`, `/integrations`, `/personas`, `/roadmap`, `/skills`, `/tasks`, `/workflows`), o scanner não detectou callsites de catálogo na árvore de UI alcançável. A decisão registrada é manter esse débito visível e migrar a copy junto da reconstrução Axiom, evitando traduzir telas que serão descartadas.
+
+Gates locais da 7B: `i18n:verify` PASS, `db:verify` PASS, `db:rbac:verify` PASS, `i18n:coverage` PASS (64/745; 8,6%; 681 hardcoded candidates), parser **385 TS/TSX / 0 erros sintáticos** e probe isolado do genérico `postgres.js begin<T>` PASS. O runtime completo da 7B ainda precisa do GitHub Actions para validar os **115 arquivos / 968 testes esperados**, `tsc --noEmit`, `next build` e os novos probes PostgreSQL vivos.
+
+**Próximo passo de promoção:** a branch `phase7b-runtime-hardening` já existe a partir de `main@040efdd6…`; publicar nela o commit completo da 7B, executar CI real (incluindo PostgreSQL/RLS/RBAC/i18n live probes) e smoke browser nos quatro locales. Só depois iniciar a Fase 8 — Axiom Design System Premium + reconstrução do application shell.
