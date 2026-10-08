@@ -98,7 +98,7 @@ if (localeSwitcher.includes('/api/control-plane/me/preferences')) {
 }
 
 const localeRoute = read('app/api/i18n/locale/route.ts');
-for (const token of ['getRequestSession', 'updateUserPreferences', 'persisted']) {
+for (const token of ['resolveUserSession', 'SESSION_COOKIE', 'updateUserPreferences', 'persisted']) {
   if (!localeRoute.includes(token)) fail(`locale endpoint missing runtime-hardening contract ${token}`);
 }
 
