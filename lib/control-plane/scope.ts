@@ -18,12 +18,18 @@ export async function withControlPlaneScope<T>(
   const scope = ControlPlaneScopeSchema.parse(scopeInput);
   const { sql } = getControlPlaneConnection();
 
-  return (sql.begin as any)(async (tx: any) => {
+  const result = await sql.begin(async (tx) => {
     await tx`select set_config('founder_os.organization_id', ${scope.organizationId}, true)`;
     await tx`select set_config('founder_os.actor_id', ${scope.actorId ?? ''}, true)`;
     await tx`select set_config('founder_os.request_id', ${scope.requestId ?? ''}, true)`;
-    return fn(tx);
+
+    // postgres.js unwraps array-shaped callback results in its generic return
+    // type. Wrapping the caller result in an object preserves T exactly for
+    // arrays, tuples and scalars without weakening the transaction to `any`.
+    return { value: await fn(tx) };
   });
+
+  return result.value;
 }
 
 export async function currentControlPlaneScope(tx: postgres.TransactionSql): Promise<{
