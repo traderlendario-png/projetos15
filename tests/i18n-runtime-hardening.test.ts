@@ -11,7 +11,8 @@ describe('Phase 7B i18n/runtime hardening contracts', () => {
     expect(switcher).not.toContain('/api/control-plane/me/preferences');
 
     const route = read('app/api/i18n/locale/route.ts');
-    expect(route).toContain('getRequestSession');
+    expect(route).toContain('resolveUserSession');
+    expect(route).toContain('SESSION_COOKIE');
     expect(route).toContain('updateUserPreferences');
     expect(route).toContain('persisted');
     expect(route).toContain("patch: { locale }");
