@@ -106,10 +106,10 @@ Data-base: 2026-09-09
 - [x] 3.5b Internacionalizar shell, navegação, command palette, temas, Conductor, login/convite e formatadores críticos
 - [x] 3.5b-verify Criar `i18n:verify` + testes de locale/catalog; 4 catálogos com 105 chaves e 0 formatter bypasses
 - [x] 3.5b-runtime Preparar hardening 7B: locale switch em request único sem 401 esperado, persistência PostgreSQL best-effort autenticada, analytics/calendário no locale ativo, `withControlPlaneScope<T>` sem `any` e `turbopack.root` explícito
-- [x] 3.5b-coverage Criar inventário AST reproduzível de copy de UI; baseline 7B = 64/745 callsites catalog-backed (8,6%) e 681 candidatos hardcoded em `app/` + `components/`
+- [x] 3.5b-coverage Criar inventário AST reproduzível de copy de UI; baseline 7B = 64/748 callsites catalog-backed (8,6%) e 684 candidatos hardcoded em `app/` + `components/`
 - [x] 3.5b-coverage-decision Registrar decisão explícita: não traduzir a UI legada antes do Axiom; preservar o baseline e exigir que cada superfície Axiom nova nasça em `pt-BR`, `pt-PT`, `es-419` e `en-US`
 - [x] 3.5b-live-gate Preparar prova real login → locale → PostgreSQL: dev-login, cookie opaco, `user_preferences`, reidratação de sessão; adicionar job PostgreSQL 18 com migrations + RLS/RBAC/i18n live probes
-- [ ] 3.5b-runtime-ci Promover a 7B após CI canônico (`npm ci` + 115 arquivos / 968 testes esperados + i18n verify/coverage + typecheck + build + PostgreSQL live probes) e smoke browser dos quatro locales
+- [x] 3.5b-runtime-ci CI canônico 7B PASS no run `37723669006`: `npm ci`, **115 arquivos / 968 testes**, i18n verify/coverage, typecheck, build, PostgreSQL migrations, RLS live, RBAC live e i18n live
 - [ ] 3.5c Migrar copy das telas legadas para os catálogos durante o redesign Axiom (evita traduzir duas vezes UI que será substituída)
 - [ ] 3.5d Normalizar/validar telefone E.164 nos domínios CRM/Inbox durante a reconstrução dos módulos
 - [ ] 4.1 Criar Axiom Design System
@@ -187,12 +187,22 @@ Data-base: 2026-09-09
 - [ ] 22.2 White-label/enterprise deployment se comercialmente necessário
 
 ## Próxima ação imediata
-A `main` canônica `traderlendario-png/projetos15` no commit `040efdd6facbec2a92b56f0a694425e44e2e081a` já passou por GitHub Actions real: `npm ci`, **113 arquivos de teste / 961 testes**, `tsc --noEmit` e `next build` Next.js 16.3.4 concluíram com sucesso. Isso fecha os gates runtime de Next 16 e React 19 que antes estavam pendentes; o gate Tailwind 4 continua aberto apenas pela regressão visual dos seis temas.
+A Fase 7B está tecnicamente **verde no GitHub Actions**. O run `37723669006` provou os dois jobs: `verify` e `control-plane-live`.
 
-A Fase 7B foi ampliada para substituir os hotfixes frágeis vistos na `main`: o `LocaleSwitcher` deixa de fazer um segundo PATCH autenticado e o endpoint público `/api/i18n/locale` passa a persistir no Control Plane somente quando existe sessão; `HomeSocialGraph` e `WeekCalendar` deixam de cair em `DEFAULT_LOCALE`; o escopo PostgreSQL preserva `T` sem `as any`; e o Turbopack recebe raiz absoluta baseada em `next.config.mjs`. Além dos contratos estáticos, há agora teste de rota e um live probe que reproduz dev-login → cookie de sessão → troca de locale → `control_plane.user_preferences` → sessão reidratada.
+Evidência consolidada:
+- `npm ci` PASS;
+- **115 test files / 968 tests PASS**;
+- `i18n:verify` PASS — 4 locales, 105 chaves/catalog e 0 formatter bypasses;
+- `i18n:coverage` PASS — **64/748 callsites catalog-backed (8,6%) e 684 candidatos hardcoded**;
+- TypeScript PASS;
+- Next.js 16.3.4 production build PASS;
+- PostgreSQL 18 + migrations PASS;
+- RLS vivo PASS: isolamento de leitura por organização, diretório de usuários e bloqueio de escrita cross-tenant;
+- RBAC vivo PASS: owner, invitation, viewer read-only;
+- i18n vivo PASS: anônimo cookie-only, dev-login, cookie de sessão, persistência `user_preferences` e reidratação de sessão em `es-419`.
 
-O inventário AST de internacionalização está finalmente medido: **64/745 callsites elegíveis catalog-backed (8,6%)**, com **681 candidatos hardcoded**. Nas dez rotas legadas observadas no runtime (`/brain`, `/comms`, `/finances`, `/funnel`, `/integrations`, `/personas`, `/roadmap`, `/skills`, `/tasks`, `/workflows`), o scanner não detectou callsites de catálogo na árvore de UI alcançável. A decisão registrada é manter esse débito visível e migrar a copy junto da reconstrução Axiom, evitando traduzir telas que serão descartadas.
+O gate vivo encontrou e corrigiu ainda dois defeitos que a análise estática não mostrava: binding direto de `Date` em prepared statements de sessão/convite e dependência implícita de `cookies()` fora do request store na prova direta da rota. Os dois estão cobertos pelo CI final.
 
-Gates locais da 7B: `i18n:verify` PASS, `db:verify` PASS, `db:rbac:verify` PASS, `i18n:coverage` PASS (64/745; 8,6%; 681 hardcoded candidates), parser **385 TS/TSX / 0 erros sintáticos** e probe isolado do genérico `postgres.js begin<T>` PASS. O runtime completo da 7B ainda precisa do GitHub Actions para validar os **115 arquivos / 968 testes esperados**, `tsc --noEmit`, `next build` e os novos probes PostgreSQL vivos.
+Decisão explícita sobre o débito de tradução: a UI legada permanece com baseline mensurável de **684 candidatos hardcoded** e será migrada junto da reconstrução Axiom, evitando traduzir superfícies que serão substituídas. O smoke visual dos quatro locales e a regressão visual dos seis temas passam a ser gates da própria Fase 8, sobre o novo shell, e não bloqueiam o início do redesign. As **11 vulnerabilidades npm (4 moderadas, 4 altas, 3 críticas)** ficam como gate obrigatório antes de produção e devem ser triadas sem `npm audit fix --force` às cegas.
 
-**Próximo passo de promoção:** a branch `phase7b-runtime-hardening` já existe a partir de `main@040efdd6…`; publicar nela o commit completo da 7B, executar CI real (incluindo PostgreSQL/RLS/RBAC/i18n live probes) e smoke browser nos quatro locales. Só depois iniciar a Fase 8 — Axiom Design System Premium + reconstrução do application shell.
+**Próxima ação:** promover o PR #1 `phase7b-runtime-hardening → main`. Depois do merge, encerrar formalmente a Fase 7B e iniciar a **Fase 8 — Axiom Design System Premium + novo application shell**.
