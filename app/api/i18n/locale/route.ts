@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getRequestSession } from '@/lib/control-plane/request-auth';
 import { updateUserPreferences } from '@/lib/control-plane/preferences';
+import { resolveUserSession } from '@/lib/control-plane/sessions';
+import { SESSION_COOKIE } from '@/lib/control-plane/session-token';
 import { LOCALE_COOKIE, SUPPORTED_LOCALES } from '@/lib/i18n/locales';
 
 const Body = z.object({ locale: z.enum(SUPPORTED_LOCALES) }).strict();
 
 async function persistLocaleForAuthenticatedUser(req: NextRequest, locale: (typeof SUPPORTED_LOCALES)[number]): Promise<boolean> {
   try {
-    const session = await getRequestSession();
+    const session = await resolveUserSession(req.cookies.get(SESSION_COOKIE)?.value);
     if (!session) return false;
 
     await updateUserPreferences({
