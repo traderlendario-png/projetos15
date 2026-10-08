@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
-  getRequestSession: vi.fn(),
+  resolveUserSession: vi.fn(),
   updateUserPreferences: vi.fn(),
 }));
 
-vi.mock('@/lib/control-plane/request-auth', () => ({
-  getRequestSession: mocks.getRequestSession,
+vi.mock('@/lib/control-plane/sessions', () => ({
+  resolveUserSession: mocks.resolveUserSession,
 }));
 
 vi.mock('@/lib/control-plane/preferences', () => ({
@@ -16,22 +16,25 @@ vi.mock('@/lib/control-plane/preferences', () => ({
 
 import { POST } from '@/app/api/i18n/locale/route';
 
-function request(locale: string) {
+function request(locale: string, sessionToken?: string) {
   return new NextRequest('http://localhost/api/i18n/locale', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      ...(sessionToken ? { cookie: `founder_os_session=${sessionToken}` } : {}),
+    },
     body: JSON.stringify({ locale }),
   });
 }
 
 describe('POST /api/i18n/locale', () => {
   beforeEach(() => {
-    mocks.getRequestSession.mockReset();
+    mocks.resolveUserSession.mockReset();
     mocks.updateUserPreferences.mockReset();
   });
 
   test('anonymous locale changes stay 200 and use the presentation cookie only', async () => {
-    mocks.getRequestSession.mockResolvedValue(null);
+    mocks.resolveUserSession.mockResolvedValue(null);
 
     const response = await POST(request('es-419'));
     const body = await response.json();
@@ -44,10 +47,10 @@ describe('POST /api/i18n/locale', () => {
 
   test('authenticated locale changes persist through user preferences', async () => {
     const session = { user: { id: 'user-1' }, organization: { id: 'org-1' } };
-    mocks.getRequestSession.mockResolvedValue(session);
+    mocks.resolveUserSession.mockResolvedValue(session);
     mocks.updateUserPreferences.mockResolvedValue({ locale: 'pt-PT' });
 
-    const response = await POST(request('pt-PT'));
+    const response = await POST(request('pt-PT', 'session-token'));
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -60,11 +63,11 @@ describe('POST /api/i18n/locale', () => {
   });
 
   test('a persistence outage never turns presentation locale switching into a 401', async () => {
-    mocks.getRequestSession.mockResolvedValue({ user: { id: 'user-1' } });
+    mocks.resolveUserSession.mockResolvedValue({ user: { id: 'user-1' } });
     mocks.updateUserPreferences.mockRejectedValue(new Error('db unavailable'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    const response = await POST(request('en-US'));
+    const response = await POST(request('en-US', 'session-token'));
     const body = await response.json();
 
     expect(response.status).toBe(200);
