@@ -89,6 +89,57 @@ if (!apiPolicy.includes("path === '/api/control-plane/me/preferences')")) {
   fail('personal preferences endpoint is still trapped behind coarse app.write/app.read policy');
 }
 
+
+// Phase 7B runtime hardening contracts.
+const localeSwitcher = read('components/i18n/LocaleSwitcher.tsx');
+if (!localeSwitcher.includes("fetch('/api/i18n/locale'")) fail('LocaleSwitcher must use the unified locale endpoint');
+if (localeSwitcher.includes('/api/control-plane/me/preferences')) {
+  fail('LocaleSwitcher must not perform a second auth-only preferences PATCH');
+}
+
+const localeRoute = read('app/api/i18n/locale/route.ts');
+for (const token of ['resolveUserSession', 'SESSION_COOKIE', 'updateUserPreferences', 'persisted']) {
+  if (!localeRoute.includes(token)) fail(`locale endpoint missing runtime-hardening contract ${token}`);
+}
+
+const scopeSource = read('lib/control-plane/scope.ts');
+if (/\bas any\b|\btx:\s*any\b/.test(scopeSource)) fail('Control Plane scope must not weaken postgres transaction types to any');
+if (!scopeSource.includes('return { value: await fn(tx) };') || !scopeSource.includes('return result.value;')) {
+  fail('Control Plane scope generic-preservation wrapper missing');
+}
+
+const socialGraph = read('components/HomeSocialGraph.tsx');
+for (const token of ['DEFAULT_LOCALE', "from '@/lib/i18n/format'"]) {
+  if (socialGraph.includes(token)) fail(`HomeSocialGraph contains default-locale bypass ${token}`);
+}
+if (!socialGraph.includes("const { number } = useI18n();")) fail('HomeSocialGraph modal must consume active locale number formatting');
+
+const weekCalendar = read('components/WeekCalendar.tsx');
+for (const token of ['DEFAULT_LOCALE', 'DEFAULT_REGIONAL_SETTINGS', "from '@/lib/i18n/format'"]) {
+  if (weekCalendar.includes(token)) fail(`WeekCalendar contains default-locale bypass ${token}`);
+}
+if (!weekCalendar.includes('function EventBlock') || !weekCalendar.includes("const { date } = useI18n();")) {
+  fail('WeekCalendar event blocks must consume active locale date formatting');
+}
+
+const nextConfig = read('next.config.mjs');
+for (const token of ['turbopack:', 'root: projectRoot', 'fileURLToPath(import.meta.url)']) {
+  if (!nextConfig.includes(token)) fail(`Next/Turbopack root contract missing ${token}`);
+}
+
+const packageSource = read('package.json');
+for (const token of ['"i18n:coverage": "node scripts/i18n-coverage.mjs"', '"i18n:verify:live": "tsx scripts/verify-i18n-live.ts"']) {
+  if (!packageSource.includes(token)) fail(`package script missing ${token}`);
+}
+const coverageSource = read('scripts/i18n-coverage.mjs');
+for (const token of ['createRequire', "require('typescript')", 'Top routes by hardcoded UI copy']) {
+  if (!coverageSource.includes(token)) fail(`AST coverage scanner contract missing ${token}`);
+}
+const liveProbe = read('scripts/verify-i18n-live.ts');
+for (const token of ['devLogin', 'control_plane.user_preferences', 'resolveUserSession', "locale: 'es-419'"]) {
+  if (!liveProbe.includes(token)) fail(`live i18n persistence probe missing ${token}`);
+}
+
 const formatCall = /\.toLocale(?:String|DateString|TimeString)\(/;
 const intlCall = /new\s+Intl\.(?:NumberFormat|DateTimeFormat)\(/;
 const offenders = [];
@@ -123,4 +174,4 @@ for (const [input, expected] of cases) {
   if (match(input) !== expected) fail(`locale match contract ${input} -> ${match(input)}; expected ${expected}`);
 }
 
-console.log(`i18n:verify PASS — ${locales.length} locales · ${baseKeys.length} keys/catalog · placeholder parity · regional/RLS boundary · 0 formatter bypasses`);
+console.log(`i18n:verify PASS — ${locales.length} locales · ${baseKeys.length} keys/catalog · placeholder parity · regional/RLS boundary · phase7b runtime contracts · 0 formatter bypasses`);

@@ -46,7 +46,7 @@ export async function createInvitation(input: {
         token_hash, invited_by, expires_at
       ) VALUES (
         ${id}, ${organization.id}, ${email}, ${emailNormalized}, ${input.roleKey},
-        ${tokenHash}, ${input.session.user.id}, ${expiresAt}
+        ${tokenHash}, ${input.session.user.id}, ${expiresAt.toISOString()}
       )
     `;
     await tx`

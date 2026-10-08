@@ -227,7 +227,7 @@ export async function createUserSession(input: {
       ) VALUES (
         ${sessionId}, ${input.userId}, ${input.identityId ?? null}, ${tokenHash},
         ${organizationId}, ${workspace?.id ?? null}, ${input.authMethod ?? 'external'},
-        ${expiresAt}, ${JSON.stringify(input.metadata ?? {})}::jsonb
+        ${expiresAt.toISOString()}, ${JSON.stringify(input.metadata ?? {})}::jsonb
       )
     `;
 

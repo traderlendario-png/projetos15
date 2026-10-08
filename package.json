@@ -18,7 +18,9 @@
     "db:verify:live": "tsx scripts/verify-control-plane-live.ts",
     "db:rbac:verify": "node scripts/verify-rbac.mjs",
     "db:rbac:verify:live": "tsx scripts/verify-rbac-live.ts",
-    "i18n:verify": "node scripts/verify-i18n.mjs"
+    "i18n:verify": "node scripts/verify-i18n.mjs",
+    "i18n:coverage": "node scripts/i18n-coverage.mjs",
+    "i18n:verify:live": "tsx scripts/verify-i18n-live.ts"
   },
   "dependencies": {
     "@notionhq/client": "^5.22.0",

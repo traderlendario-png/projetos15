@@ -4,10 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, Maximize2, X } from 'lucide-react';
 import { useI18n } from '@/components/i18n/I18nProvider';
-import { formatNumber } from '@/lib/i18n/format';
-import { DEFAULT_LOCALE } from '@/lib/i18n/locales';
-
-function fmtNum(n: number | null): string { return n === null ? '—' : formatNumber(n, DEFAULT_LOCALE); }
 
 type Range = 7 | 30 | 60 | 'all';
 const RANGES: Range[] = [7, 30, 60, 'all'];
@@ -220,6 +216,8 @@ function AnalyticsModal({
   initialActive: Set<string>;
   onClose: () => void;
 }) {
+  const { number } = useI18n();
+  const fmtNum = (n: number | null) => (n === null ? '—' : number(n));
   const [range, setRange] = useState<Range>(initialRange);
   const [active, setActive] = useState<Set<string>>(initialActive);
   const toggle = (key: string) =>
