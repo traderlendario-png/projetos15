@@ -227,12 +227,15 @@ Em 2026-10-08 a escrita via conector GitHub funcional foi restabelecida. A branc
 - `components/HomeSocialGraph.tsx`
 - `components/WeekCalendar.tsx`
 - `lib/control-plane/scope.ts`
+- `lib/control-plane/sessions.ts`
+- `lib/control-plane/invitations.ts`
 - `next.config.mjs`
 - `scripts/verify-i18n.mjs`
 - `tests/i18n-runtime-hardening.test.ts`
 - `tests/i18n-locale-route.test.ts`
 - `scripts/i18n-coverage.mjs`
 - `scripts/verify-i18n-live.ts`
+- `scripts/verify-rbac-live.ts`
 - `.github/workflows/ci.yml`
 - `package.json`
 - `PLANO_MESTRE_FOUNDEROS_OPTIMALENGINE.md`
