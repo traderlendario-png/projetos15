@@ -32,6 +32,12 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: I18N contracts
+        run: npm run i18n:verify
+
+      - name: I18N coverage inventory
+        run: npm run i18n:coverage
+
       - name: Types
         run: npm run typecheck
 
@@ -39,3 +45,56 @@ jobs:
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: '1'
+
+  control-plane-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: founder_os
+          POSTGRES_USER: founder_os_owner
+          POSTGRES_PASSWORD: founder_os_owner
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U founder_os_owner -d founder_os"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://founder_os_app:founder_os_app@127.0.0.1:5432/founder_os
+      DATABASE_MIGRATION_URL: postgres://founder_os_owner:founder_os_owner@127.0.0.1:5432/founder_os
+      CONTROL_PLANE_DB_SSL: disable
+      CONTROL_PLANE_AUTH_MODE: required
+      CONTROL_PLANE_DEV_AUTH: 'true'
+      CONTROL_PLANE_COOKIE_SECURE: 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create non-owner application role
+        env:
+          PGPASSWORD: founder_os_owner
+        run: psql -h 127.0.0.1 -U founder_os_owner -d founder_os -f db/control-plane/docker-init/001_app_role.sql
+
+      - name: Apply Control Plane migrations
+        run: npm run db:migrate
+
+      - name: Prove PostgreSQL RLS isolation
+        run: npm run db:verify:live
+
+      - name: Prove RBAC and session lifecycle
+        run: npm run db:rbac:verify:live
+
+      - name: Prove authenticated locale persistence
+        run: npm run i18n:verify:live
