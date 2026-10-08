@@ -14,18 +14,26 @@ async function main() {
   const suffix = randomUUID().slice(0, 8);
   const ownerEmail = `rbac-owner-${suffix}@example.invalid`;
   const viewerEmail = `rbac-viewer-${suffix}@example.invalid`;
+  console.log('[rbac-live] bootstrap owner');
   const owner = await bootstrapOrganization({
     organization: { name: `RBAC Probe ${suffix}`, slug: `rbac-probe-${suffix}` },
     owner: { email: ownerEmail, displayName: 'RBAC Owner', externalAuthId: `probe-owner-${suffix}` },
     region: { locale: 'pt-BR', country: 'BR', currency: 'BRL', timezone: 'America/Sao_Paulo', firstDayOfWeek: 1 },
   });
+  console.log('[rbac-live] create owner session');
   const ownerSession = await createUserSession({ userId: owner.userId, organizationId: owner.organizationId, authMethod: 'probe' });
   assert(ownerSession.session.permissions.has('billing.manage'), 'owner must have billing.manage');
+  console.log('[rbac-live] create viewer invitation');
   const invitation = await createInvitation({ session: ownerSession.session, email: viewerEmail, roleKey: 'viewer' });
+  console.log('[rbac-live] provision viewer identity');
   const viewerIdentity = await resolveOrProvisionExternalIdentity({ provider: 'probe', subject: `probe-viewer-${suffix}`, email: viewerEmail, displayName: 'RBAC Viewer' });
+  console.log('[rbac-live] create viewer anonymous session');
   const viewerAnonymousSession = await createUserSession({ userId: viewerIdentity.userId, authMethod: 'probe' });
+  console.log('[rbac-live] accept invitation');
   const accepted = await acceptInvitation({ session: viewerAnonymousSession.session, token: invitation.token });
+  console.log('[rbac-live] create viewer org session');
   const viewerSession = await createUserSession({ userId: viewerIdentity.userId, organizationId: accepted.organizationId, authMethod: 'probe' });
+  console.log('[rbac-live] resolve viewer session');
   const resolved = await resolveUserSession(viewerSession.token);
   assert(resolved, 'viewer session did not resolve');
   assert(resolved.roleKeys.includes('viewer'), 'viewer role missing');
@@ -48,6 +56,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
+  console.error('[rbac-live] failure', error);
   process.exitCode = 1;
 });
