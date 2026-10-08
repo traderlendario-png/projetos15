@@ -4,7 +4,7 @@ Data-base: 2026-09-10
 Atualizado: 2026-10-08  
 Repositório canônico: `traderlendario-png/projetos15`  
 Base canônica observada: `main@040efdd6facbec2a92b56f0a694425e44e2e081a`  
-Status: **branch de promoção publicada; aguardando CI canônico da 7B**
+Status: **CI canônico da Fase 7B verde; PR #1 pronto para promoção**
 
 ## Por que a 7B existe
 
@@ -31,7 +31,7 @@ Isso fecha os antigos gates runtime de Next 16 e React 19. O gate Tailwind 4 con
 
 ### Observações do CI que não foram escondidas
 
-O `npm ci` reportou **5 vulnerabilidades** no grafo instalado: 3 moderadas, 1 alta e 1 crítica. O log não contém o detalhamento de `npm audit`, portanto esta fase não tenta adivinhar os pacotes afetados. Antes de produção deve existir um gate explícito de auditoria/triagem de dependências.
+O `npm ci` da execução final da 7B reportou **11 vulnerabilidades** no grafo instalado: 4 moderadas, 4 altas e 3 críticas. O log de instalação não contém o detalhamento de `npm audit`, portanto esta fase não tenta adivinhar os pacotes afetados. Isso não bloqueia o redesign Axiom, mas **bloqueia produção** até existir triagem explícita de advisories, dependências transitivas e versões corrigidas.
 
 O build também concluiu com 8 warnings de tracing dinâmico de filesystem, principalmente em fluxos legados de statement/PDF, Obsidian, WhatsApp e credenciais. Não quebram a build atual, mas devem ser eliminados durante a racionalização dos conectores.
 
@@ -130,9 +130,9 @@ Foi criado `npm run i18n:coverage`, baseado na API AST do TypeScript. Ele mede *
 
 Resultado reproduzido sobre o candidato 7B atual em `app/` + `components/`:
 
-- **745** callsites elegíveis estimados;
+- **748** callsites elegíveis estimados;
 - **64** callsites catalogados;
-- **681** candidatos hardcoded;
+- **684** candidatos hardcoded;
 - cobertura heurística global: **8,6%**.
 
 Esse número é deliberadamente chamado de *heurístico*: ele é uma métrica de inventário estático, não uma afirmação de que 91,4% de todo texto percebido por um humano está necessariamente sem tradução. O comando aceita `--json=...`.
@@ -142,7 +142,7 @@ As dez rotas levantadas no runtime anterior ficaram assim:
 | Rota | Hardcoded candidatos | Catálogo detectado | Cobertura heurística |
 |---|---:|---:|---:|
 | `/brain` | 170 | 0 | 0% |
-| `/comms` | 14 | 0 | 0% |
+| `/comms` | 17 | 0 | 0% |
 | `/finances` | 34 | 0 | 0% |
 | `/funnel` | 47 | 0 | 0% |
 | `/integrations` | 14 | 0 | 0% |
@@ -152,7 +152,7 @@ As dez rotas levantadas no runtime anterior ficaram assim:
 | `/tasks` | 6 | 0 | 0% |
 | `/workflows` | 17 | 0 | 0% |
 
-A decisão consciente é **não traduzir toda a UI legada antes do Axiom**: essas superfícies serão substituídas/reconstruídas na Fase 8 e traduzir a copy antiga agora criaria trabalho descartável. O débito deixa de ser invisível: 681 candidatos ficam registrados como baseline, e cada superfície Axiom nova continua obrigada a nascer nos quatro locales.
+A decisão consciente é **não traduzir toda a UI legada antes do Axiom**: essas superfícies serão substituídas/reconstruídas na Fase 8 e traduzir a copy antiga agora criaria trabalho descartável. O débito deixa de ser invisível: 684 candidatos ficam registrados como baseline, e cada superfície Axiom nova continua obrigada a nascer nos quatro locales.
 
 ### 7. Prova login → locale → PostgreSQL
 
@@ -178,26 +178,43 @@ A suíte esperada da branch passa de 113/961 na base para **115 arquivos / 968 t
 - `node scripts/verify-rbac.mjs` — **PASS**;
 - parser TypeScript/TSX global — **385 arquivos / 0 erros sintáticos**;
 - probe do genérico `postgres.js begin<T>` — **PASS**;
-- `npm run i18n:coverage` — **PASS**, 64/745 catalog-backed (8,6%), 681 candidatos hardcoded.
+- `npm run i18n:coverage` — **PASS**, 64/748 catalog-backed (8,6%), 684 candidatos hardcoded.
 
-## Gates que o GitHub Actions da 7B precisa provar
+## Evidência real do CI canônico da 7B
 
-- `npm ci`;
-- **115 test files / 968 tests**;
-- `npm run i18n:verify`;
-- `npm run i18n:coverage`;
-- `npm run typecheck`;
-- `npm run build`;
-- migrations PostgreSQL;
-- isolamento RLS vivo;
-- RBAC/sessão vivos;
-- login → locale → `user_preferences` → sessão reidratada.
+O run final **37723669006** ficou verde nos dois jobs.
 
-Fora do CI de código ainda permanecem como gates de produto:
+### Job `verify`
 
-- smoke browser em `pt-BR`, `pt-PT`, `es-419`, `en-US`;
-- regressão visual dos 6 temas;
-- triagem das 5 vulnerabilidades npm antes de produção.
+- `npm ci` — PASS;
+- Vitest — **115 test files / 968 tests PASS**;
+- `npm run i18n:verify` — PASS, 4 locales, 105 chaves/catalog, placeholder parity, boundary regional/RLS, contratos 7B e 0 formatter bypasses;
+- `npm run i18n:coverage` — PASS, **64/748 callsites catalog-backed (8,6%) / 684 candidatos hardcoded**;
+- `npm run typecheck` — PASS;
+- `npm run build` — PASS em Next.js 16.3.4/Turbopack;
+- geração estática — 17/17 páginas;
+- build ainda registra os 8 warnings legados de filesystem tracing já documentados.
+
+### Job `control-plane-live`
+
+- PostgreSQL 18 container — PASS;
+- criação da role de aplicação não-owner — PASS;
+- migrations 0001/0002/0003 — PASS;
+- RLS live — **organizationReadIsolation PASS, userDirectoryIsolation PASS, crossTenantWriteIsolation PASS**;
+- RBAC live — **owner PASS, invitation PASS, viewerReadOnly PASS**;
+- i18n live — **anonymousCookieOnly PASS, devLoginSessionCookie PASS, authenticatedPersistence PASS, databasePreference PASS, sessionRehydrate PASS**.
+
+### Bugs adicionais encontrados pelo gate vivo e corrigidos
+
+O primeiro job vivo revelou que o `postgres.js 3.4.9` estava recebendo objetos `Date` em inserts preparados de `user_sessions.expires_at` e `invitations.expires_at`, causando `ERR_INVALID_ARG_TYPE` no binding. A 7B passou a bindar esses timestamps como ISO 8601, mantendo as colunas `timestamptz`.
+
+O segundo ciclo revelou que chamar `cookies()` de `next/headers` fora de um request store impedia o probe direto da rota. A rota de locale foi endurecida para resolver a sessão a partir de `req.cookies.get(SESSION_COOKIE)`, usando `resolveUserSession`. Isso torna a dependência de sessão explícita no próprio `NextRequest` e deixou o fluxo real testável.
+
+### Gates de produto conscientemente adiados
+
+O **smoke visual browser dos quatro locales** e a **regressão visual dos seis temas** ficam acoplados ao início da Fase 8, porque o Axiom substituirá o shell e várias telas legadas. Executá-los agora como aprovação visual da UI que será descartada geraria evidência de baixo valor. A regra continua: toda superfície Axiom nova deve nascer e ser validada nos quatro locales e nos temas suportados.
+
+A triagem das 11 vulnerabilidades npm é **gate de produção**, não gate de início do redesign.
 
 ## Publicação da branch
 
@@ -223,4 +240,4 @@ Em 2026-10-08 a escrita via conector GitHub funcional foi restabelecida. A branc
 
 ## Próximo passo
 
-Abrir o PR `phase7b-runtime-hardening → main`, executar o CI canônico completo e corrigir qualquer regressão encontrada. A Fase 8 continua congelada até a 7B ter evidência verde ou uma pendência conscientemente adiada e documentada.
+Promover o PR #1 `phase7b-runtime-hardening → main`. Com CI real verde e os gates visuais conscientemente transferidos para a reconstrução Axiom, a Fase 7B pode ser encerrada após o merge. Em seguida, iniciar a Fase 8 — Axiom Design System Premium + novo application shell.
